@@ -511,16 +511,41 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>クラウド同期（複数端末でデータ共有）</h2>
-      <p class="muted">スマホ・タブレット・PCで同じデータ（案件・写真・日報すべて）を共有できます。データはあなた専用のGitHub<b>非公開</b>リポジトリに保存され、外部サービスには送信されません（無料）。</p>
-      <label>同期用リポジトリ（owner/リポジトリ名）</label>
-      <input id="sy-repo" placeholder="004zero/genba-report-data">
-      <label>アクセストークン</label>
-      <input id="sy-token" type="password" placeholder="github_pat_ で始まるトークンを貼り付け" autocomplete="off">
+      <p class="muted">スマホ・タブレット・PCで同じデータ（案件・写真・日報すべて）を共有できます。データは自分のサーバー／自分のGitHub非公開リポジトリにだけ保存され、外部業者には渡りません。</p>
+      <label>同期方法</label>
+      <select id="sy-method">
+        <option value="xserver">Xサーバー（自分のレンタルサーバー・推奨）</option>
+        <option value="github">GitHub（非公開リポジトリ）</option>
+      </select>
+      <div id="sy-fields-xserver">
+        <label>APIのURL</label>
+        <input id="sy-url" placeholder="https://あなたのID.xsrv.jp/genba-api/api.php" autocomplete="off">
+        <label>合言葉（APIキー）</label>
+        <input id="sy-key" type="password" placeholder="サーバーの config.php と同じ合言葉" autocomplete="off">
+      </div>
+      <div id="sy-fields-github" style="display:none">
+        <label>同期用リポジトリ（owner/リポジトリ名）</label>
+        <input id="sy-repo" placeholder="004zero/genba-report-data">
+        <label>アクセストークン</label>
+        <input id="sy-token" type="password" placeholder="github_pat_ で始まるトークンを貼り付け" autocomplete="off">
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);font-weight:400"><input type="checkbox" id="sy-auto" style="width:auto"> 保存後に自動で同期する（推奨）</label>
       <button class="btn btn-primary btn-block" id="sy-save-btn">保存して今すぐ同期</button>
       <div class="muted" id="sy-status" style="margin-top:8px"></div>
       <details style="margin-top:10px">
-        <summary class="muted" style="cursor:pointer">初回設定の手順（トークンの作り方・1回だけ）</summary>
+        <summary class="muted" style="cursor:pointer">Xサーバー方式の初回設定（1回だけ）</summary>
+        <p class="muted" style="margin-top:6px">
+          ① 「genba-api」フォルダ一式を、Xサーバーのファイルマネージャで <b>public_html</b> の中にアップロード（ZIPをアップして展開でOK）<br>
+          ② 上の「APIのURL」に <b>https://あなたのID.xsrv.jp/genba-api/api.php</b> を入力<br>
+          ③ 「合言葉」に、サーバーの config.php に書かれている合言葉を貼り付け<br>
+          ④ 「保存して今すぐ同期」を押す<br>
+          ⑤ 他の端末でも同じURLと合言葉を入れるだけで、同じデータが使えます<br>
+          ※ 合言葉はこの端末の中にだけ保存されます。他人に教えないでください。<br>
+          ※ サーバー側には自動で直近10世代のバックアップが残ります。
+        </p>
+      </details>
+      <details style="margin-top:10px">
+        <summary class="muted" style="cursor:pointer">GitHub方式の初回設定（トークンの作り方・1回だけ）</summary>
         <p class="muted" style="margin-top:6px">
           ① GitHubにログインし <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</b> を開く<br>
           ② Repository access：「Only select repositories」→ <b>genba-report-data</b> を選ぶ<br>
@@ -552,7 +577,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.2（試作版・PWA・クラウド同期対応）<br>
+      <p class="muted">ゲンバレポ v2.3（試作版・PWA・クラウド同期：Xサーバー／GitHub対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1742,9 +1767,13 @@ document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText
 
 /* ================= 設定 ================= */
 function renderSettings(){
+  document.getElementById('sy-method').value = sync.method;
+  document.getElementById('sy-url').value = sync.apiUrl;
+  document.getElementById('sy-key').value = sync.apiKey;
   document.getElementById('sy-repo').value = sync.repo;
   document.getElementById('sy-token').value = sync.token;
   document.getElementById('sy-auto').checked = sync.auto;
+  updateSyncFields();
   renderSyncStatus();
   const co = db.company;
   document.getElementById('s-name').value = co.name;
@@ -1812,8 +1841,19 @@ let sync = loadSync();
 let syncing = false;
 let syncTimer = null;
 function loadSync(){
-  try{ const s = JSON.parse(localStorage.getItem(SYNC_KEY)); if(s && typeof s === 'object') return s; }catch(e){}
-  return { repo:'004zero/genba-report-data', token:'', auto:true, lastSync:'' };
+  try{
+    const s = JSON.parse(localStorage.getItem(SYNC_KEY));
+    if(s && typeof s === 'object'){
+      if(!s.method) s.method = s.token ? 'github' : 'xserver';
+      s.apiUrl = s.apiUrl || ''; s.apiKey = s.apiKey || '';
+      s.repo = s.repo || '004zero/genba-report-data'; s.token = s.token || '';
+      return s;
+    }
+  }catch(e){}
+  return { method:'xserver', apiUrl:'', apiKey:'', repo:'004zero/genba-report-data', token:'', auto:true, lastSync:'' };
+}
+function syncReady(){
+  return sync.method === 'github' ? !!sync.token : !!(sync.apiUrl && sync.apiKey);
 }
 function saveSync(){ localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); }
 function b64encode(str){
@@ -1857,6 +1897,30 @@ async function ghPut(sha, text){
   if(!res.ok) throw new Error('書き込みエラー HTTP' + res.status);
   return true;
 }
+/* ---- Xサーバー（自前API）ドライバー ---- */
+async function xsGetRemote(){
+  const res = await fetch(sync.apiUrl + '?action=data', { headers:{ 'X-Api-Key': sync.apiKey } });
+  if(res.status === 401) throw new Error('合言葉が違います');
+  if(res.status === 404) throw new Error('APIが見つかりません（URLを確認）');
+  if(!res.ok) throw new Error('読み込みエラー HTTP' + res.status);
+  const j = await res.json();
+  return { sha: j.rev, text: j.data == null ? null : JSON.stringify(j.data) };
+}
+async function xsPut(sha, text){
+  const res = await fetch(sync.apiUrl + '?action=data', {
+    method:'PUT',
+    headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+    body: JSON.stringify({ rev: sha, data: JSON.parse(text) })
+  });
+  if(res.status === 401) throw new Error('合言葉が違います');
+  if(res.status === 409 || res.status === 422) throw new Error('CONFLICT');
+  if(res.status === 413) throw new Error('データが大きすぎます（写真を減らすかサーバー設定を確認）');
+  if(!res.ok) throw new Error('書き込みエラー HTTP' + res.status);
+  return true;
+}
+function remoteGet(){ return sync.method === 'github' ? ghGetRemote() : xsGetRemote(); }
+function remotePut(sha, text){ return sync.method === 'github' ? ghPut(sha, text) : xsPut(sha, text); }
+
 function syncPayload(){
   return JSON.stringify({ company: db.company, cases: db.cases, deleted: db.deleted || [], savedAt: new Date().toISOString() });
 }
@@ -1880,26 +1944,26 @@ function mergeRemote(text){
   if(remote.company && (remote.company.updatedAt || '') > (db.company.updatedAt || '')) db.company = remote.company;
 }
 async function syncNow(silent){
-  if(!sync.token){ if(!silent){ toast('設定でクラウド同期を設定してください'); show('settings'); } return false; }
+  if(!syncReady()){ if(!silent){ toast('設定でクラウド同期を設定してください'); show('settings'); } return false; }
   if(syncing) return false;
   syncing = true;
   setSyncUI(true);
   try{
     collectAll();
-    let { sha, text: remoteText } = await ghGetRemote();
+    let { sha, text: remoteText } = await remoteGet();
     mergeRemote(remoteText);
     localStorage.setItem(LS_KEY, JSON.stringify(db));
     const text = syncPayload();
-    // 変更がなければコミットしない（remoteのsavedAtを除いて比較）
+    // 変更がなければ書き込まない（remoteのsavedAtを除いて比較）
     const stripped = t => t ? t.replace(/"savedAt":"[^"]*"/, '') : null;
     if(stripped(text) !== stripped(remoteText)){
-      try{ await ghPut(sha, text); }
+      try{ await remotePut(sha, text); }
       catch(e){
         if(e.message !== 'CONFLICT') throw e;
-        const r2 = await ghGetRemote();
+        const r2 = await remoteGet();
         mergeRemote(r2.text);
         localStorage.setItem(LS_KEY, JSON.stringify(db));
-        await ghPut(r2.sha, syncPayload());
+        await remotePut(r2.sha, syncPayload());
       }
     }
     sync.lastSync = new Date().toISOString();
@@ -1919,13 +1983,13 @@ async function syncNow(silent){
   }
 }
 function queueAutoSync(){
-  if(!sync.token || !sync.auto || syncing) return;
+  if(!syncReady() || !sync.auto || syncing) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => syncNow(true), 8000);
 }
 function setSyncUI(busy){
   const b = document.getElementById('sync-btn');
-  b.style.display = sync.token ? 'block' : 'none';
+  b.style.display = syncReady() ? 'block' : 'none';
   b.textContent = busy ? '⏳' : '🔄';
 }
 function renderSyncStatus(err){
@@ -1934,16 +1998,40 @@ function renderSyncStatus(err){
   if(err){ el.innerHTML = `<span style="color:var(--red)">⚠ ${esc(err)}</span>`; return; }
   el.textContent = sync.lastSync
     ? `✅ 最終同期：${new Date(sync.lastSync).toLocaleString('ja-JP')}`
-    : (sync.token ? 'まだ同期していません' : '未設定（下の手順でトークンを作成してください）');
+    : (syncReady() ? 'まだ同期していません' : '未設定（下の手順を開いて設定してください）');
+}
+function updateSyncFields(){
+  const m = document.getElementById('sy-method').value;
+  document.getElementById('sy-fields-xserver').style.display = m === 'xserver' ? 'block' : 'none';
+  document.getElementById('sy-fields-github').style.display = m === 'github' ? 'block' : 'none';
+}
+document.getElementById('sy-method').onchange = updateSyncFields;
+/* URLの表記ゆれを補正（末尾スラッシュ・api.php抜け） */
+function normalizeApiUrl(u){
+  u = u.trim();
+  if(!u) return '';
+  if(!/^https?:\/\//.test(u)) u = 'https://' + u;
+  if(/\.php(\?|$)/.test(u)) return u;
+  if(!u.endsWith('/')) u += '/';
+  if(!u.includes('genba-api')) u += 'genba-api/';
+  return u + 'api.php';
 }
 document.getElementById('sync-btn').onclick = () => syncNow(false);
 document.getElementById('sy-save-btn').onclick = async () => {
+  sync.method = document.getElementById('sy-method').value;
+  sync.apiUrl = normalizeApiUrl(document.getElementById('sy-url').value);
+  sync.apiKey = document.getElementById('sy-key').value.trim();
   sync.repo = document.getElementById('sy-repo').value.trim() || '004zero/genba-report-data';
   sync.token = document.getElementById('sy-token').value.trim();
   sync.auto = document.getElementById('sy-auto').checked;
   saveSync();
+  document.getElementById('sy-url').value = sync.apiUrl;
   setSyncUI(false);
-  if(!sync.token){ renderSyncStatus(); toast('トークンを入力してください'); return; }
+  if(!syncReady()){
+    renderSyncStatus();
+    toast(sync.method === 'xserver' ? 'URLと合言葉を入力してください' : 'トークンを入力してください');
+    return;
+  }
   await syncNow(false);
 };
 
@@ -1972,7 +2060,7 @@ document.getElementById('install-btn').onclick = async () => {
 /* ================= 起動 ================= */
 show('home');
 setSyncUI(false);
-if(sync.token && sync.auto) syncNow(true);
+if(syncReady() && sync.auto) syncNow(true);
 </script>
 </body>
 </html>
