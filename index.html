@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a3a5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ゲンバレポ">
+<meta name="format-detection" content="telephone=no">
+<title>ゲンバレポ｜現場写真から報告書・提案書・見積書・施工管理</title>
+<style>
+:root{
+  --navy:#1a3a5c; --navy-d:#122a44; --orange:#e8762d; --orange-l:#fdf0e6;
+  --bg:#f2f4f7; --card:#ffffff; --line:#dde3ea; --text:#2b3440; --sub:#6b7686;
+  --red:#d64541; --red-l:#fdecec; --yellow:#e0a800; --yellow-l:#fdf6e0;
+  --green:#2e9e5b; --green-l:#e8f6ee; --blue-l:#e9f1fa;
+  --radius:12px; --shadow:0 1px 4px rgba(20,40,70,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;cursor:pointer;touch-action:manipulation}
+input,select{touch-action:manipulation}
+input,select,textarea{font-family:inherit;font-size:16px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--navy);outline-offset:-1px}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin:14px 0 5px}
+label:first-child{margin-top:0}
+
+/* ===== レイアウト ===== */
+#app-header{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:8px;padding:12px 14px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+#app-header .back-btn{background:none;border:none;color:#fff;font-size:22px;padding:2px 8px 2px 0;display:none}
+#app-header h1{font-size:17px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app-header .icon-btn{background:rgba(255,255,255,.14);border:none;color:#fff;font-size:16px;padding:7px 11px;border-radius:8px}
+main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
+.view{display:none}
+.view.active{display:block}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;color:var(--navy);border-left:4px solid var(--orange);padding-left:8px;margin-bottom:12px}
+.muted{color:var(--sub);font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* ボタン */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;padding:12px 18px;font-size:15px;font-weight:700}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-outline{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-danger{background:#fff;color:var(--red);border:1.5px solid var(--red)}
+.btn-sm{padding:7px 12px;font-size:13px;border-radius:8px}
+.btn-block{width:100%;margin-top:10px}
+.btn:active{opacity:.8}
+.btn.on{background:var(--orange);color:#fff;border-color:var(--orange)}
+
+/* ダッシュボード */
+.dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.dash .cell{background:var(--card);border-radius:10px;box-shadow:var(--shadow);padding:10px 6px;text-align:center}
+.dash .num{font-size:22px;font-weight:800;color:var(--navy);line-height:1.2}
+.dash .num.warn{color:var(--red)}
+.dash .lbl{font-size:10.5px;color:var(--sub)}
+
+/* 案件カード */
+.case-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer;border:1px solid transparent}
+.case-card:active{border-color:var(--orange)}
+.case-thumb{width:64px;height:64px;border-radius:8px;background:var(--blue-l);flex-shrink:0;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:26px}
+.case-info{flex:1;min-width:0}
+.case-info .t{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.case-info .s{font-size:12px;color:var(--sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.st-調査中{background:var(--yellow-l);color:#9a7400}
+.st-報告済{background:var(--blue-l);color:var(--navy)}
+.st-受注{background:var(--green-l);color:var(--green)}
+.st-施工中{background:var(--orange-l);color:var(--orange)}
+.st-完了{background:#eceff3;color:var(--sub)}
+.pbar{height:6px;background:#e6ebf1;border-radius:3px;overflow:hidden;margin-top:5px}
+.pbar > div{height:100%;background:var(--green);border-radius:3px}
+.alert-txt{color:var(--red);font-weight:700}
+
+/* 案件サブタブ */
+.subtabs{display:flex;gap:4px;background:#e2e8ef;border-radius:10px;padding:4px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.subtab{flex:1;flex-shrink:0;border:none;background:none;border-radius:8px;padding:8px 6px;font-size:12.5px;font-weight:700;color:var(--sub);white-space:nowrap}
+.subtab.active{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ctab{display:none}
+.ctab.active{display:block}
+
+/* 調査項目カード */
+.item-card{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;cursor:pointer;align-items:center}
+.item-card:active{border-color:var(--orange)}
+.item-thumb{width:58px;height:58px;border-radius:8px;object-fit:cover;background:var(--blue-l);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.dg{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:4px;margin-right:5px}
+.dg-高{background:var(--red-l);color:var(--red)}
+.dg-中{background:var(--yellow-l);color:#9a7400}
+.dg-低{background:var(--green-l);color:var(--green)}
+
+/* 危険度ラジオ */
+.seg{display:flex;gap:8px}
+.seg label{flex:1;margin:0}
+.seg input{display:none}
+.seg span{display:block;text-align:center;padding:10px 4px;border:1.5px solid var(--line);border-radius:8px;font-weight:700;font-size:14px;color:var(--sub);background:#fff}
+.seg input:checked + span.v-低{background:var(--green-l);border-color:var(--green);color:var(--green)}
+.seg input:checked + span.v-中{background:var(--yellow-l);border-color:var(--yellow);color:#9a7400}
+.seg input:checked + span.v-高{background:var(--red-l);border-color:var(--red);color:var(--red)}
+
+/* 写真 */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.photo-cell{position:relative;border-radius:8px;overflow:hidden;background:var(--blue-l);aspect-ratio:1}
+.photo-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-cell .del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1}
+.photo-cell .edit{position:absolute;top:4px;left:4px;background:rgba(232,118,45,.92);color:#fff;border:none;width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1}
+.photo-cell select{position:absolute;bottom:0;left:0;width:100%;font-size:11px;padding:3px 4px;border:none;border-radius:0;background:rgba(255,255,255,.9)}
+.photo-add{aspect-ratio:1;border:2px dashed var(--line);border-radius:8px;background:#fff;color:var(--sub);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.photo-add b{font-size:24px;color:var(--orange)}
+
+/* 図面 */
+.drawing-card{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px;background:#fff}
+.drawing-wrap{position:relative;margin-top:8px;border:1px solid var(--line);border-radius:6px;overflow:hidden;touch-action:manipulation}
+.drawing-wrap img{width:100%;display:block}
+.drawing-wrap.pinmode{cursor:crosshair;outline:3px solid var(--orange)}
+.pin{position:absolute;transform:translate(-50%,-100%);width:26px;height:26px;background:var(--red);color:#fff;font-size:12px;font-weight:800;border-radius:50% 50% 50% 0;transform-origin:bottom left;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;rotate:-45deg}
+.pin span{rotate:45deg}
+.pin-list{margin-top:8px;font-size:13px}
+.pin-list li{list-style:none;padding:4px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;align-items:baseline}
+.pin-no{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--red);color:#fff;border-radius:50%;font-size:11px;font-weight:800}
+
+/* 工程表（ガント） */
+.gantt{margin-top:10px}
+.g-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #eef1f5}
+.g-name{width:110px;flex-shrink:0;font-size:12.5px;font-weight:700;line-height:1.35}
+.g-name .g-sub{font-size:10.5px;color:var(--sub);font-weight:400}
+.g-track{flex:1;position:relative;height:24px;background:#f2f5f8;border-radius:5px;overflow:hidden}
+.g-bar{position:absolute;top:3px;bottom:3px;border-radius:4px;background:#9db4cc;min-width:6px}
+.g-bar .g-fill{position:absolute;left:0;top:0;bottom:0;background:rgba(20,60,110,.45);border-radius:4px}
+.g-bar.done{background:var(--green)}
+.g-bar.late{background:var(--red)}
+.g-bar.active{background:var(--orange)}
+.g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.7}
+.g-range{font-size:11px;color:var(--sub);text-align:right;margin-bottom:4px}
+.g-edit{background:none;border:none;color:var(--navy);font-size:15px;padding:2px 6px;flex-shrink:0}
+
+/* 日報 */
+.report-card{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;align-items:center}
+.report-card:active{border-color:var(--orange)}
+.rep-date{flex-shrink:0;width:56px;text-align:center;background:var(--blue-l);border-radius:8px;padding:6px 2px}
+.rep-date b{display:block;font-size:17px;color:var(--navy);line-height:1.2}
+.rep-date span{font-size:10.5px;color:var(--sub)}
+.worker-table{width:100%;border-collapse:collapse}
+.worker-table td{padding:3px 3px}
+.worker-table input{padding:8px}
+.worker-table .rm{background:none;border:none;color:var(--red);font-size:17px}
+.wk-sum{text-align:right;font-size:14px;margin-top:6px}
+.wk-sum b{font-size:18px;color:var(--navy)}
+
+/* 書類タブ */
+.doc-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+.doc-tab{flex-shrink:0;border:1.5px solid var(--line);background:#fff;color:var(--sub);border-radius:20px;padding:8px 15px;font-size:13px;font-weight:700;white-space:nowrap}
+.doc-tab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* 書類プレビュー（A4風） */
+#doc-preview-wrap{overflow-x:auto;background:#c9d2dc;border-radius:var(--radius);padding:14px}
+.doc{background:#fff;width:100%;max-width:640px;margin:0 auto 14px;padding:34px 36px;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:12.5px;line-height:1.7;color:#222;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.doc:last-child{margin-bottom:0}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:8px;border-bottom:2.5px solid var(--navy);margin-bottom:14px}
+.doc-head .co{text-align:right;font-size:11px;line-height:1.55}
+.doc-head .co img{max-height:34px;max-width:130px;object-fit:contain;margin-bottom:3px}
+.doc-title{font-size:20px;font-weight:800;color:var(--navy);letter-spacing:.15em}
+.doc-date{font-size:11px;color:#555;margin-top:4px}
+.doc table{width:100%;border-collapse:collapse;margin:8px 0 14px}
+.doc th,.doc td{border:1px solid #b9c2cc;padding:6px 9px;text-align:left;vertical-align:top;font-size:12px}
+.doc th{background:var(--blue-l);color:var(--navy);font-weight:700;white-space:nowrap;width:96px}
+.doc .sec{font-size:13.5px;font-weight:800;color:var(--navy);background:var(--blue-l);padding:5px 10px;border-left:4px solid var(--orange);margin:16px 0 8px}
+.doc .item-photos{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+.doc .item-photos figure{width:31%;margin:0}
+.doc .item-photos img{width:100%;border-radius:4px;border:1px solid #ccc;display:block}
+.doc .item-photos figcaption{font-size:10px;color:#666;text-align:center}
+.doc .risk-高{color:var(--red);font-weight:700}
+.doc .risk-中{color:#9a7400;font-weight:700}
+.doc .risk-低{color:var(--green);font-weight:700}
+.doc .est-table th{width:auto;text-align:center;white-space:nowrap}
+.doc .est-table td.num{text-align:right;white-space:nowrap}
+.doc .total-row td{font-weight:800;background:var(--orange-l)}
+.doc .foot-note{font-size:10.5px;color:#666;margin-top:10px;border-top:1px dashed #bbb;padding-top:6px}
+.doc .greeting{margin-bottom:10px}
+.doc .kobetsu{border:1px solid #b9c2cc;border-radius:6px;padding:10px 12px;margin-bottom:12px}
+.doc .kobetsu h4{font-size:13px;color:var(--navy);margin-bottom:4px}
+.doc .prio{display:inline-block;background:var(--navy);color:#fff;font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 8px;margin-right:6px}
+.doc .dwg{position:relative;border:1px solid #ccc;margin:6px 0}
+.doc .dwg img{width:100%;display:block}
+
+/* 見積編集テーブル */
+.est-edit{width:100%;border-collapse:collapse;font-size:13px}
+.est-edit th{font-size:11px;color:var(--sub);text-align:left;padding:4px 3px;border-bottom:1px solid var(--line)}
+.est-edit td{padding:4px 3px;border-bottom:1px solid var(--line)}
+.est-edit input{padding:7px 8px;font-size:14px;border-radius:6px}
+.est-edit .rm{background:none;border:none;color:var(--red);font-size:17px;padding:4px}
+.est-sum{text-align:right;margin-top:10px;font-size:14px}
+.est-sum b{font-size:18px;color:var(--navy)}
+
+/* 送付文 */
+.share-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-size:13.5px;margin:8px 0}
+
+/* 固定フッター */
+#action-bar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:none;gap:10px;backdrop-filter:blur(8px)}
+#action-bar .btn{flex:1}
+.fab{position:fixed;bottom:calc(22px + env(safe-area-inset-bottom));right:18px;z-index:40;width:58px;height:58px;border-radius:50%;background:var(--orange);color:#fff;border:none;font-size:28px;box-shadow:0 4px 12px rgba(232,118,45,.45)}
+
+/* 空状態 */
+.empty{text-align:center;padding:36px 20px;color:var(--sub)}
+.empty .em{font-size:44px;margin-bottom:10px}
+
+/* トースト */
+#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(30,40,55,.92);color:#fff;padding:10px 20px;border-radius:24px;font-size:13.5px;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+
+/* モーダル */
+.modal-bg{position:fixed;inset:0;background:rgba(15,25,40,.55);z-index:80;display:flex;align-items:center;justify-content:center;padding:18px}
+.modal-bg[hidden]{display:none}
+.modal-box{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto}
+.modal-box h3{font-size:15px;color:var(--navy);margin-bottom:10px}
+.modal-actions{display:flex;gap:10px;margin-top:16px}
+.modal-actions .btn{flex:1}
+
+/* 写真注釈エディタ */
+#anno{position:fixed;inset:0;background:#20262e;z-index:90;display:flex;flex-direction:column}
+#anno[hidden]{display:none}
+#anno-top{display:flex;gap:6px;align-items:center;padding:8px 10px;background:#151a20;flex-wrap:wrap}
+#anno-top .tool{background:#2c343e;color:#cfd8e2;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700}
+#anno-top .tool.on{background:var(--orange);color:#fff}
+#anno-top .colorbox{width:30px;height:30px;border-radius:50%;border:3px solid transparent;padding:0}
+#anno-top .colorbox.on{border-color:#fff}
+#anno-canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px}
+#anno-canvas{max-width:100%;max-height:100%;touch-action:none;background:#fff}
+#anno-bottom{display:flex;gap:8px;padding:10px;background:#151a20}
+#anno-bottom .btn{flex:1}
+
+/* ===== 印刷 ===== */
+#print-area{display:none}
+@media print{
+  body > *{display:none !important}
+  #print-area{display:block !important}
+  #print-area .doc{box-shadow:none;max-width:none;width:100%;padding:0;margin:0;page-break-after:always;font-size:12px}
+  #print-area .doc:last-child{page-break-after:auto}
+  @page{size:A4;margin:16mm 14mm}
+}
+@media (min-width:640px){
+  .photo-grid{grid-template-columns:repeat(4,1fr)}
+}
+/* タブレット（iPad等） */
+@media (min-width:768px){
+  main{max-width:860px}
+  .photo-grid{grid-template-columns:repeat(5,1fr)}
+  .subtab{font-size:14px}
+  .doc{max-width:700px}
+  .g-name{width:150px}
+}
+</style>
+</head>
+<body>
+
+<header id="app-header">
+  <button class="back-btn" id="back-btn">‹</button>
+  <h1 id="header-title">ゲンバレポ</h1>
+  <button class="icon-btn" id="settings-btn" title="設定">⚙ 設定</button>
+</header>
+
+<main>
+  <!-- ============ ホーム：ダッシュボード＋案件一覧 ============ -->
+  <section class="view" id="view-home">
+    <div class="dash" id="dash"></div>
+    <div id="case-list"></div>
+  </section>
+
+  <!-- ============ 案件（サブタブ） ============ -->
+  <section class="view" id="view-case">
+    <div class="subtabs" id="case-subtabs">
+      <button class="subtab active" data-tab="info">基本</button>
+      <button class="subtab" data-tab="items">調査</button>
+      <button class="subtab" data-tab="drawings">図面</button>
+      <button class="subtab" data-tab="schedule">工程</button>
+      <button class="subtab" data-tab="reports">日報</button>
+    </div>
+
+    <!-- 基本情報 -->
+    <div class="ctab active" id="ct-info">
+      <div class="card">
+        <h2>基本情報</h2>
+        <label>案件名 <span style="color:var(--red)">*</span></label>
+        <input id="c-title" placeholder="例：〇〇ビル 厨房コンセント修繕">
+        <div class="row2">
+          <div><label>依頼者名</label><input id="c-client" placeholder="例：山田太郎"></div>
+          <div><label>敬称</label><select id="c-honor"><option>様</option><option>御中</option><option>殿</option></select></div>
+        </div>
+        <label>現場住所</label>
+        <input id="c-address" placeholder="例：東京都〇〇区…">
+        <div class="row2">
+          <div><label>調査日</label><input type="date" id="c-date"></div>
+          <div><label>担当者</label><input id="c-surveyor" placeholder="例：佐藤"></div>
+        </div>
+        <div class="row2">
+          <div><label>工期（開始）</label><input type="date" id="c-start"></div>
+          <div><label>工期（終了）</label><input type="date" id="c-end"></div>
+        </div>
+        <label>ステータス</label>
+        <select id="c-status"><option>調査中</option><option>報告済</option><option>受注</option><option>施工中</option><option>完了</option></select>
+      </div>
+      <div class="card">
+        <h2>総評・所見（調査報告書に載ります）</h2>
+        <textarea id="c-overview" placeholder="下のボタンで下書きを自動作成できます。"></textarea>
+        <button class="btn btn-navy btn-sm btn-block" id="gen-overview-btn">✎ 調査項目から下書きを自動作成</button>
+        <div class="muted" style="margin-top:6px">※ 自動作成された文章は必ず担当者が確認・修正してください。</div>
+      </div>
+      <div class="card">
+        <button class="btn btn-danger btn-sm" id="del-case-btn">この案件を削除</button>
+      </div>
+    </div>
+
+    <!-- 調査項目 -->
+    <div class="ctab" id="ct-items">
+      <div class="card">
+        <h2>調査項目（不具合箇所）</h2>
+        <div id="item-list"></div>
+        <button class="btn btn-outline btn-block" id="add-item-btn">＋ 調査項目を追加</button>
+      </div>
+    </div>
+
+    <!-- 図面 -->
+    <div class="ctab" id="ct-drawings">
+      <div class="card">
+        <h2>図面・配置図</h2>
+        <p class="muted">平面図・配線図・立面図などの画像を登録できます（PDFは画像化またはスクリーンショットで）。図面上をタップしてピン（番号マーカー）を打ち、不具合箇所や作業箇所を記録できます。</p>
+        <div id="drawing-list" style="margin-top:10px"></div>
+        <button class="btn btn-outline btn-block" id="add-drawing-btn">＋ 図面を追加</button>
+        <input type="file" id="drawing-input" accept="image/*" style="display:none">
+      </div>
+    </div>
+
+    <!-- 工程表 -->
+    <div class="ctab" id="ct-schedule">
+      <div class="card">
+        <h2>工程表</h2>
+        <div id="gantt-wrap"></div>
+        <button class="btn btn-outline btn-block" id="add-task-btn">＋ 工程（作業）を追加</button>
+        <div class="muted" style="margin-top:8px">バーの色：<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定　／　「書類」からA4の工程表を印刷できます。</div>
+      </div>
+    </div>
+
+    <!-- 日報一覧 -->
+    <div class="ctab" id="ct-reports">
+      <div class="card">
+        <h2>作業日報</h2>
+        <div id="report-summary" class="muted" style="margin-bottom:8px"></div>
+        <div id="report-list"></div>
+        <button class="btn btn-primary btn-block" id="add-report-btn">＋ 今日の日報を書く</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 調査項目編集 ============ -->
+  <section class="view" id="view-item">
+    <div class="card">
+      <h2>写真（最大6枚）</h2>
+      <div class="photo-grid" id="photo-grid"></div>
+      <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
+      <div class="muted" style="margin-top:8px">📝 写真左上の「✎」ボタンで、写真に文字・矢印・囲みを書き込めます。写真は端末内にのみ保存されます。</div>
+    </div>
+    <div class="card">
+      <h2>状況の記録</h2>
+      <label>場所 <span style="color:var(--red)">*</span></label>
+      <input id="i-place" placeholder="例：店舗厨房">
+      <label>状況（何がどうなっているか）</label>
+      <input id="i-situation" placeholder="例：コンセントが破損している">
+      <label>原因（現地所見）</label>
+      <input id="i-cause" placeholder="例：経年劣化">
+      <label>危険度</label>
+      <div class="seg">
+        <label><input type="radio" name="i-danger" value="低"><span class="v-低">低</span></label>
+        <label><input type="radio" name="i-danger" value="中" checked><span class="v-中">中</span></label>
+        <label><input type="radio" name="i-danger" value="高"><span class="v-高">高</span></label>
+      </div>
+      <label>緊急度</label>
+      <select id="i-urgency"><option>経過観察でよい</option><option selected>早めの対応を推奨</option><option>早急な対応が必要</option></select>
+      <label>推奨対応（工事内容）</label>
+      <input id="i-action" placeholder="例：コンセント交換">
+      <label>おおよその費用（円）</label>
+      <div class="row2">
+        <input type="number" id="i-cost-min" placeholder="下限 例：15000" inputmode="numeric">
+        <input type="number" id="i-cost-max" placeholder="上限 例：25000" inputmode="numeric">
+      </div>
+      <label>メモ（任意）</label>
+      <textarea id="i-memo" placeholder="補足事項があれば"></textarea>
+    </div>
+    <div class="card">
+      <button class="btn btn-danger btn-sm" id="del-item-btn">この項目を削除</button>
+    </div>
+  </section>
+
+  <!-- ============ 日報編集 ============ -->
+  <section class="view" id="view-report">
+    <div class="card">
+      <h2>日報の基本情報</h2>
+      <div class="row3">
+        <div><label>日付</label><input type="date" id="r-date"></div>
+        <div><label>天候</label><select id="r-weather"><option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>強風</option><option>晴れのち雨</option></select></div>
+        <div><label>記入者</label><input id="r-author" placeholder="例：佐藤"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>作業人数（出面）</h2>
+      <table class="worker-table"><tbody id="worker-rows"></tbody></table>
+      <button class="btn btn-outline btn-sm" id="add-worker-btn" style="margin-top:6px">＋ 会社・班を追加</button>
+      <div class="wk-sum" id="wk-sum"></div>
+    </div>
+    <div class="card">
+      <h2>作業内容</h2>
+      <label>本日の作業内容</label>
+      <textarea id="r-content" placeholder="例：2F天井配線敷設、分電盤回路増設（3回路）"></textarea>
+      <label>全体の進捗率（%・任意）</label>
+      <input type="number" id="r-progress" min="0" max="100" inputmode="numeric" placeholder="例：60">
+      <label>明日の予定</label>
+      <textarea id="r-tomorrow" rows="2" placeholder="例：器具付け、照明取付"></textarea>
+      <label>安全事項・連絡事項・特記</label>
+      <textarea id="r-safety" rows="2" placeholder="例：KY実施。3F資材搬入は午前中のみ可。"></textarea>
+    </div>
+    <div class="card">
+      <h2>現場写真（最大6枚）</h2>
+      <div class="photo-grid" id="r-photo-grid"></div>
+      <input type="file" id="r-photo-input" accept="image/*" multiple style="display:none">
+      <div class="muted" style="margin-top:8px">📝 「✎」ボタンで写真に書き込みできます。</div>
+    </div>
+    <div class="card">
+      <h2>この日報を送る</h2>
+      <div class="share-box" id="r-share"></div>
+      <button class="btn btn-navy btn-sm" id="r-copy-btn">LINE・メール用にコピー</button>
+      <div class="muted" style="margin-top:6px">A4のPDF日報は「書類」→「工事日報」から作成できます。</div>
+    </div>
+    <div class="card">
+      <button class="btn btn-danger btn-sm" id="del-report-btn">この日報を削除</button>
+    </div>
+  </section>
+
+  <!-- ============ 書類作成 ============ -->
+  <section class="view" id="view-docs">
+    <div class="doc-tabs" id="doc-tabs">
+      <button class="doc-tab active" data-doc="report">調査報告書</button>
+      <button class="doc-tab" data-doc="proposal">改善提案書</button>
+      <button class="doc-tab" data-doc="customer">お客様向け</button>
+      <button class="doc-tab" data-doc="estimate">見積書</button>
+      <button class="doc-tab" data-doc="schedule">工程表</button>
+      <button class="doc-tab" data-doc="nippo">工事日報</button>
+      <button class="doc-tab" data-doc="share">✉ 送付文</button>
+    </div>
+    <div id="nippo-picker" class="card" style="display:none">
+      <label>印刷する日報の日付</label>
+      <select id="nippo-select"></select>
+    </div>
+    <div id="estimate-editor" class="card" style="display:none">
+      <h2>見積り項目の編集</h2>
+      <button class="btn btn-navy btn-sm" id="est-auto-btn">✎ 調査項目から自動作成</button>
+      <div style="overflow-x:auto;margin-top:10px">
+        <table class="est-edit">
+          <thead><tr><th style="min-width:150px">項目名</th><th style="width:56px">数量</th><th style="width:56px">単位</th><th style="width:96px">単価(円)</th><th></th></tr></thead>
+          <tbody id="est-rows"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-outline btn-sm" id="est-add-btn" style="margin-top:8px">＋ 行を追加</button>
+      <div class="est-sum" id="est-sum"></div>
+      <label>備考</label>
+      <textarea id="est-note" rows="2"></textarea>
+    </div>
+    <div id="share-editor" style="display:none">
+      <div class="card">
+        <h2>メール用 送付文</h2>
+        <div class="share-box" id="share-mail"></div>
+        <button class="btn btn-navy btn-sm" data-copy="share-mail">コピー</button>
+      </div>
+      <div class="card">
+        <h2>LINE用 送付文（短め）</h2>
+        <div class="share-box" id="share-line"></div>
+        <button class="btn btn-navy btn-sm" data-copy="share-line">コピー</button>
+      </div>
+    </div>
+    <div id="doc-preview-wrap"><div id="doc-preview"></div></div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <h2>自社情報（書類に印字されます）</h2>
+      <label>会社名・屋号</label><input id="s-name" placeholder="例：〇〇電気工事">
+      <label>代表者・担当者名</label><input id="s-person" placeholder="例：大石 太郎">
+      <label>住所</label><input id="s-address" placeholder="例：東京都〇〇区…">
+      <div class="row2">
+        <div><label>電話番号</label><input id="s-tel" placeholder="例：090-0000-0000"></div>
+        <div><label>メール</label><input id="s-email" placeholder="例：info@example.com"></div>
+      </div>
+      <label>ロゴ画像（任意）</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <img id="s-logo-preview" style="max-height:40px;max-width:120px;display:none;border:1px solid var(--line);border-radius:6px;padding:2px">
+        <button class="btn btn-outline btn-sm" id="s-logo-btn">画像を選択</button>
+        <button class="btn btn-danger btn-sm" id="s-logo-del" style="display:none">削除</button>
+        <input type="file" id="s-logo-input" accept="image/*" style="display:none">
+      </div>
+      <label>見積書の標準備考</label>
+      <textarea id="s-est-note" rows="2" placeholder="例：本見積りの有効期限は発行日より30日間です。"></textarea>
+      <button class="btn btn-primary btn-block" id="save-settings-btn">保存する</button>
+    </div>
+    <div class="card">
+      <h2>スマホ・タブレットで使う</h2>
+      <p class="muted">このアプリはホーム画面に追加すると、普通のアプリと同じように全画面・オフラインで使えます（インストール不要・無料）。</p>
+      <button class="btn btn-primary btn-block" id="install-btn" style="display:none">📲 アプリとしてインストール</button>
+      <p class="muted" style="margin-top:10px">
+        <b>iPhone・iPad：</b>Safariで開く → 共有ボタン（□↑）→「ホーム画面に追加」<br>
+        <b>Android：</b>Chromeで開く → 右上メニュー（⋮）→「ホーム画面に追加」<br>
+        ※ ホーム画面から起動すれば、電波のない現場でもそのまま使えます。
+      </p>
+    </div>
+    <div class="card">
+      <h2>データ管理</h2>
+      <p class="muted">すべてのデータはこの端末内（ブラウザ）にのみ保存されます。機種変更前・定期的にエクスポートしてください。事務所のPCでインポートすれば、現場の状況をそのまま確認できます。</p>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-outline btn-sm" id="export-btn">エクスポート</button>
+        <button class="btn btn-outline btn-sm" id="import-btn">インポート</button>
+        <input type="file" id="import-input" accept=".json" style="display:none">
+      </div>
+    </div>
+    <div class="card">
+      <h2>このアプリについて</h2>
+      <p class="muted">ゲンバレポ v2.1（試作版・PWA対応）<br>
+      現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
+      <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="fab" title="新規案件">＋</button>
+<div id="action-bar">
+  <button class="btn btn-navy" id="bar-docs-btn">📄 書類を作成</button>
+  <button class="btn btn-primary" id="bar-save-btn">保存する</button>
+</div>
+<div id="toast"></div>
+<div id="print-area"></div>
+
+<!-- 汎用モーダル -->
+<div class="modal-bg" id="modal-bg" hidden><div class="modal-box" id="modal-box"></div></div>
+
+<!-- 写真注釈エディタ -->
+<div id="anno" hidden>
+  <div id="anno-top">
+    <button class="tool on" data-tool="pen">✏ ペン</button>
+    <button class="tool" data-tool="arrow">➔ 矢印</button>
+    <button class="tool" data-tool="rect">▢ 囲み</button>
+    <button class="tool" data-tool="text">Ａ 文字</button>
+    <button class="colorbox on" data-color="#e53935" style="background:#e53935"></button>
+    <button class="colorbox" data-color="#ffd600" style="background:#ffd600"></button>
+    <button class="colorbox" data-color="#ffffff" style="background:#ffffff"></button>
+    <button class="colorbox" data-color="#1e88e5" style="background:#1e88e5"></button>
+    <button class="tool" id="anno-undo">↩ 戻す</button>
+  </div>
+  <div id="anno-canvas-wrap"><canvas id="anno-canvas"></canvas></div>
+  <div id="anno-bottom">
+    <button class="btn btn-outline" id="anno-cancel" style="background:#2c343e;color:#cfd8e2;border-color:#2c343e">キャンセル</button>
+    <button class="btn btn-primary" id="anno-save">✔ 書き込みを保存</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= データ ================= */
+const LS_KEY = 'genbaRepoData_v1';
+let db = loadDB();
+function migrateCase(c){
+  c.honor = c.honor || '様';
+  c.items = c.items || [];
+  c.estimate = c.estimate || { lines:[], taxRate:10, note:'' };
+  c.drawings = c.drawings || [];
+  c.tasks = c.tasks || [];
+  c.reports = c.reports || [];
+  c.start = c.start || '';
+  c.end = c.end || '';
+  return c;
+}
+function loadDB(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LS_KEY));
+    if(d && Array.isArray(d.cases)){ d.cases.forEach(migrateCase); return d; }
+  }catch(e){}
+  return { company:{name:'',person:'',address:'',tel:'',email:'',logo:'',estNote:'本見積りの有効期限は発行日より30日間です。'}, cases:[] };
+}
+function saveDB(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(db)); return true; }
+  catch(e){ alert('保存容量が上限に達しました。古い案件を削除するか、写真・図面の枚数を減らしてください。'); return false; }
+}
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id' + Date.now() + Math.random().toString(16).slice(2));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtYen = n => isFinite(n) ? Number(n).toLocaleString('ja-JP') : '';
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const jpDate = s => { if(!s) return ''; const [y,m,d] = s.split('-'); return `${y}年${Number(m)}月${Number(d)}日`; };
+const jpShort = s => { if(!s) return ''; const p = s.split('-'); return `${Number(p[1])}/${Number(p[2])}`; };
+const youbi = s => { try{ return ['日','月','火','水','木','金','土'][new Date(s + 'T00:00:00').getDay()]; }catch(e){ return ''; } };
+const dayDiff = (a,b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+
+/* ================= 画面遷移 ================= */
+let currentView = 'home';
+let currentCaseId = null;
+let currentItemId = null;
+let currentReportId = null;
+let currentDoc = 'report';
+let currentCaseTab = 'info';
+let currentNippoId = null;
+
+const views = { home:'view-home', case:'view-case', item:'view-item', report:'view-report', docs:'view-docs', settings:'view-settings' };
+const titles = { home:'ゲンバレポ', case:'案件', item:'調査項目', report:'作業日報', docs:'書類の作成', settings:'設定' };
+
+function collectAll(){
+  if(currentView === 'case') collectCaseForm();
+  if(currentView === 'item') collectItemForm();
+  if(currentView === 'report') collectReportForm();
+  if(currentView === 'docs') collectEstimateForm();
+}
+function show(view){
+  collectAll();
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(views[view]).classList.add('active');
+  document.getElementById('header-title').textContent = titles[view];
+  document.getElementById('back-btn').style.display = view === 'home' ? 'none' : 'block';
+  document.getElementById('settings-btn').style.display = view === 'home' ? 'block' : 'none';
+  document.getElementById('fab').style.display = view === 'home' ? 'block' : 'none';
+  const bar = document.getElementById('action-bar');
+  const saveBtn = document.getElementById('bar-save-btn');
+  const docsBtn = document.getElementById('bar-docs-btn');
+  if(view === 'case' || view === 'item' || view === 'report'){
+    bar.style.display = 'flex';
+    docsBtn.style.display = view === 'case' ? 'flex' : 'none';
+    saveBtn.textContent = '保存する';
+    saveBtn.onclick = () => { collectAll(); if(saveDB()){ toast('保存しました'); if(currentView === 'case') renderCase(); } };
+  } else if(view === 'docs'){
+    bar.style.display = 'flex';
+    docsBtn.style.display = 'none';
+    saveBtn.textContent = '🖨 印刷・PDF保存';
+    saveBtn.onclick = printCurrentDoc;
+  } else {
+    bar.style.display = 'none';
+  }
+  if(view === 'home') renderHome();
+  if(view === 'case') renderCase();
+  if(view === 'item') renderItem();
+  if(view === 'report') renderReport();
+  if(view === 'docs') renderDocs();
+  if(view === 'settings') renderSettings();
+  window.scrollTo(0,0);
+  saveDB();
+}
+document.getElementById('back-btn').onclick = () => {
+  if(currentView === 'item' || currentView === 'report' || currentView === 'docs') show('case');
+  else show('home');
+};
+document.getElementById('settings-btn').onclick = () => show('settings');
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ================= モーダル ================= */
+const modalBg = document.getElementById('modal-bg');
+const modalBox = document.getElementById('modal-box');
+function openModal(html){ modalBox.innerHTML = html; modalBg.hidden = false; }
+function closeModal(){ modalBg.hidden = true; modalBox.innerHTML = ''; }
+modalBg.addEventListener('click', e => { if(e.target === modalBg) closeModal(); });
+
+/* ================= 集計 ================= */
+function getCase(id){ return db.cases.find(c => c.id === id); }
+function caseProgress(c){
+  const withP = c.tasks.filter(t => t.progress !== '' && t.progress != null);
+  if(withP.length) return Math.round(withP.reduce((s,t) => s + Number(t.progress), 0) / withP.length);
+  const reps = [...c.reports].filter(r => r.progress !== '' && r.progress != null).sort((a,b) => b.date.localeCompare(a.date));
+  if(reps.length) return Number(reps[0].progress);
+  return null;
+}
+function delayedTasks(c){
+  const t = today();
+  return c.tasks.filter(k => k.end && k.end < t && Number(k.progress||0) < 100);
+}
+function latestReport(c){
+  return [...c.reports].sort((a,b) => b.date.localeCompare(a.date))[0] || null;
+}
+function reportWorkers(r){ return (r.workers||[]).reduce((s,w) => s + (Number(w.count)||0), 0); }
+function isActive(c){ return c.status !== '完了'; }
+
+/* ================= ホーム（ダッシュボード） ================= */
+function renderHome(){
+  const t = today();
+  const act = db.cases.filter(isActive);
+  const todayReps = act.filter(c => c.reports.some(r => r.date === t));
+  const todayMen = act.reduce((s,c) => s + c.reports.filter(r => r.date === t).reduce((x,r) => x + reportWorkers(r), 0), 0);
+  const delayed = act.reduce((s,c) => s + delayedTasks(c).length, 0);
+  document.getElementById('dash').innerHTML = `
+    <div class="cell"><div class="num">${act.length}</div><div class="lbl">稼働中の現場</div></div>
+    <div class="cell"><div class="num">${todayReps.length}<span style="font-size:12px;color:var(--sub)">/${act.length}</span></div><div class="lbl">本日の日報</div></div>
+    <div class="cell"><div class="num">${todayMen}<span style="font-size:12px">人</span></div><div class="lbl">本日の総人工</div></div>
+    <div class="cell"><div class="num ${delayed ? 'warn' : ''}">${delayed}</div><div class="lbl">遅延中の工程</div></div>`;
+
+  const wrap = document.getElementById('case-list');
+  if(!db.cases.length){
+    wrap.innerHTML = `<div class="empty"><div class="em">🏗️</div>まだ案件がありません。<br>右下の「＋」ボタンから最初の案件を作成しましょう。</div>`;
+    return;
+  }
+  const sorted = [...db.cases].sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+  wrap.innerHTML = sorted.map(c => {
+    const firstPhoto = c.items.flatMap(i => i.photos)[0] || c.reports.flatMap(r => r.photos||[])[0];
+    const thumb = firstPhoto ? `<img class="case-thumb" src="${firstPhoto.data}">` : `<div class="case-thumb">🏗️</div>`;
+    const prog = caseProgress(c);
+    const lr = latestReport(c);
+    const dly = delayedTasks(c).length;
+    let sub = '';
+    if(lr){
+      const age = dayDiff(lr.date, t);
+      sub += age <= 0 ? `日報:本日済` : (age >= 3 && isActive(c) ? `<span class="alert-txt">日報:${age}日前</span>` : `日報:${jpShort(lr.date)}`);
+    } else sub += '日報:なし';
+    if(dly) sub += `｜<span class="alert-txt">遅延${dly}件</span>`;
+    sub += `｜調査${c.items.length}件`;
+    const pbar = prog != null ? `<div class="pbar"><div style="width:${Math.min(prog,100)}%"></div></div>` : '';
+    return `<div class="case-card" data-id="${c.id}">
+      ${thumb}
+      <div class="case-info">
+        <div class="t">${esc(c.title || '（無題の案件）')}</div>
+        <div class="s">${sub}${prog != null ? '｜進捗' + prog + '%' : ''}</div>
+        ${pbar}
+      </div>
+      <span class="badge st-${esc(c.status)}">${esc(c.status)}</span>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.case-card').forEach(el => el.onclick = () => { currentCaseId = el.dataset.id; currentCaseTab = 'info'; show('case'); });
+}
+document.getElementById('fab').onclick = () => {
+  const c = migrateCase({ id:uid(), title:'', client:'', honor:'様', address:'', date:today(), surveyor:db.company.person||'', status:'調査中',
+    overview:'', items:[], estimate:{ lines:[], taxRate:10, note:db.company.estNote||'' }, updatedAt:new Date().toISOString() });
+  db.cases.push(c); currentCaseId = c.id; currentCaseTab = 'info'; show('case');
+};
+
+/* ================= 案件（サブタブ） ================= */
+document.getElementById('case-subtabs').addEventListener('click', e => {
+  const b = e.target.closest('.subtab'); if(!b) return;
+  collectCaseForm();
+  currentCaseTab = b.dataset.tab;
+  renderCase();
+});
+function renderCase(){
+  const c = getCase(currentCaseId); if(!c){ show('home'); return; }
+  document.querySelectorAll('.subtab').forEach(b => b.classList.toggle('active', b.dataset.tab === currentCaseTab));
+  document.querySelectorAll('.ctab').forEach(el => el.classList.remove('active'));
+  document.getElementById('ct-' + currentCaseTab).classList.add('active');
+  document.getElementById('header-title').textContent = c.title || '案件';
+  // 基本
+  document.getElementById('c-title').value = c.title;
+  document.getElementById('c-client').value = c.client;
+  document.getElementById('c-honor').value = c.honor;
+  document.getElementById('c-address').value = c.address;
+  document.getElementById('c-date').value = c.date;
+  document.getElementById('c-surveyor').value = c.surveyor;
+  document.getElementById('c-start').value = c.start;
+  document.getElementById('c-end').value = c.end;
+  document.getElementById('c-status').value = c.status;
+  document.getElementById('c-overview').value = c.overview;
+  renderItemList(c);
+  renderDrawings(c);
+  renderGantt(c);
+  renderReportList(c);
+}
+function collectCaseForm(){
+  const c = getCase(currentCaseId); if(!c || currentView !== 'case') return;
+  c.title = document.getElementById('c-title').value.trim();
+  c.client = document.getElementById('c-client').value.trim();
+  c.honor = document.getElementById('c-honor').value;
+  c.address = document.getElementById('c-address').value.trim();
+  c.date = document.getElementById('c-date').value;
+  c.surveyor = document.getElementById('c-surveyor').value.trim();
+  c.start = document.getElementById('c-start').value;
+  c.end = document.getElementById('c-end').value;
+  c.status = document.getElementById('c-status').value;
+  c.overview = document.getElementById('c-overview').value;
+  c.updatedAt = new Date().toISOString();
+}
+document.getElementById('del-case-btn').onclick = () => {
+  if(!confirm('この案件を削除しますか？（写真・図面・日報も消えます）')) return;
+  db.cases = db.cases.filter(c => c.id !== currentCaseId);
+  currentCaseId = null; show('home'); toast('案件を削除しました');
+};
+document.getElementById('gen-overview-btn').onclick = () => {
+  collectCaseForm();
+  const c = getCase(currentCaseId);
+  if(!c.items.length){ toast('先に「調査」タブで項目を追加してください'); return; }
+  document.getElementById('c-overview').value = genOverview(c);
+  toast('下書きを作成しました。内容を確認してください');
+};
+document.getElementById('bar-docs-btn').onclick = () => {
+  collectCaseForm();
+  show('docs');
+};
+
+/* ================= 調査項目一覧・編集 ================= */
+function renderItemList(c){
+  const wrap = document.getElementById('item-list');
+  if(!c.items.length){
+    wrap.innerHTML = `<p class="muted" style="margin-bottom:10px">「コンセント破損」「外壁ひび割れ」など、不具合1か所につき1項目を追加します。</p>`;
+  } else {
+    wrap.innerHTML = c.items.map((it,idx) => {
+      const p = it.photos[0];
+      const thumb = p ? `<img class="item-thumb" src="${p.data}">` : `<div class="item-thumb">📷</div>`;
+      return `<div class="item-card" data-id="${it.id}">
+        ${thumb}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${idx+1}. ${esc(it.place || '場所未入力')}</div>
+          <div style="font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.situation || '状況未入力')}</div>
+          <div style="margin-top:3px"><span class="dg dg-${esc(it.danger)}">危険度 ${esc(it.danger)}</span><span class="muted" style="font-size:11px">${esc(it.urgency)}</span></div>
+        </div>
+        <span style="color:var(--line);font-size:20px">›</span>
+      </div>`;
+    }).join('');
+  }
+  wrap.querySelectorAll('.item-card').forEach(el => el.onclick = () => { collectCaseForm(); currentItemId = el.dataset.id; show('item'); });
+}
+document.getElementById('add-item-btn').onclick = () => {
+  collectCaseForm();
+  const c = getCase(currentCaseId);
+  const it = { id:uid(), place:'', situation:'', cause:'', danger:'中', urgency:'早めの対応を推奨', action:'', costMin:'', costMax:'', memo:'', photos:[] };
+  c.items.push(it); currentItemId = it.id; show('item');
+};
+function getItem(){ const c = getCase(currentCaseId); return c && c.items.find(i => i.id === currentItemId); }
+function renderItem(){
+  const it = getItem(); if(!it){ show('case'); return; }
+  document.getElementById('i-place').value = it.place;
+  document.getElementById('i-situation').value = it.situation;
+  document.getElementById('i-cause').value = it.cause;
+  document.querySelectorAll('input[name="i-danger"]').forEach(r => r.checked = (r.value === it.danger));
+  document.getElementById('i-urgency').value = it.urgency;
+  document.getElementById('i-action').value = it.action;
+  document.getElementById('i-cost-min').value = it.costMin;
+  document.getElementById('i-cost-max').value = it.costMax;
+  document.getElementById('i-memo').value = it.memo;
+  renderPhotoGrid(it.photos, 'photo-grid', 'photo-input', () => renderItem());
+}
+function collectItemForm(){
+  const it = getItem(); if(!it || currentView !== 'item') return;
+  it.place = document.getElementById('i-place').value.trim();
+  it.situation = document.getElementById('i-situation').value.trim();
+  it.cause = document.getElementById('i-cause').value.trim();
+  const dg = document.querySelector('input[name="i-danger"]:checked');
+  it.danger = dg ? dg.value : '中';
+  it.urgency = document.getElementById('i-urgency').value;
+  it.action = document.getElementById('i-action').value.trim();
+  it.costMin = document.getElementById('i-cost-min').value;
+  it.costMax = document.getElementById('i-cost-max').value;
+  it.memo = document.getElementById('i-memo').value.trim();
+  const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+}
+document.getElementById('del-item-btn').onclick = () => {
+  if(!confirm('この調査項目を削除しますか？')) return;
+  const c = getCase(currentCaseId);
+  c.items = c.items.filter(i => i.id !== currentItemId);
+  currentItemId = null; show('case'); toast('項目を削除しました');
+};
+
+/* ================= 写真グリッド（共通・注釈対応） ================= */
+function renderPhotoGrid(photos, gridId, inputId, rerender){
+  const grid = document.getElementById(gridId);
+  let html = photos.map((p,idx) => `
+    <div class="photo-cell">
+      <img src="${p.data}">
+      <button class="edit" data-idx="${idx}" title="書き込み">✎</button>
+      <button class="del" data-idx="${idx}">✕</button>
+      <select data-idx="${idx}">
+        ${['現状','ビフォー','アフター','施工中','完了'].map(l => `<option ${p.label===l?'selected':''}>${l}</option>`).join('')}
+      </select>
+    </div>`).join('');
+  if(photos.length < 6) html += `<button class="photo-add" data-add="1"><b>＋</b>写真を追加</button>`;
+  grid.innerHTML = html;
+  const addBtn = grid.querySelector('[data-add]');
+  if(addBtn) addBtn.onclick = () => {
+    const input = document.getElementById(inputId);
+    // タッチ端末（スマホ・タブレット）ではカメラ／アルバムを選択、PCはそのままファイル選択
+    if(!window.matchMedia('(pointer: coarse)').matches){
+      input.removeAttribute('capture'); input.setAttribute('multiple',''); input.click(); return;
+    }
+    openModal(`<h3>写真を追加</h3>
+      <button class="btn btn-primary btn-block" id="ph-cam">📷 カメラで撮影</button>
+      <button class="btn btn-outline btn-block" id="ph-lib">🖼 アルバムから選ぶ</button>`);
+    document.getElementById('ph-cam').onclick = () => {
+      closeModal(); input.setAttribute('capture','environment'); input.removeAttribute('multiple'); input.click();
+    };
+    document.getElementById('ph-lib').onclick = () => {
+      closeModal(); input.removeAttribute('capture'); input.setAttribute('multiple',''); input.click();
+    };
+  };
+  grid.querySelectorAll('.del').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    photos.splice(Number(b.dataset.idx),1); saveDB(); rerender();
+  });
+  grid.querySelectorAll('.edit').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    openAnnotator(photos[Number(b.dataset.idx)], () => { saveDB(); rerender(); });
+  });
+  grid.querySelectorAll('select').forEach(s => s.onchange = () => {
+    photos[Number(s.dataset.idx)].label = s.value; saveDB();
+  });
+}
+async function handlePhotoInput(e, photos, rerender){
+  const files = [...e.target.files].slice(0, 6 - photos.length);
+  for(const f of files){
+    try{ photos.push({ data: await compressImage(f), label:'現状' }); }
+    catch(err){ toast('写真の読み込みに失敗しました'); }
+  }
+  e.target.value = '';
+  if(!saveDB()) photos.pop();
+  rerender();
+}
+document.getElementById('photo-input').onchange = e => { const it = getItem(); if(it) handlePhotoInput(e, it.photos, () => renderItem()); };
+document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport()); };
+
+function compressImage(file, maxSide = 1100, quality = 0.72){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width:w, height:h } = img;
+      if(Math.max(w,h) > maxSide){ const r = maxSide / Math.max(w,h); w = Math.round(w*r); h = Math.round(h*r); }
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load error')); };
+    img.src = url;
+  });
+}
+
+/* ================= 写真注釈エディタ ================= */
+const anno = {
+  el: document.getElementById('anno'),
+  canvas: document.getElementById('anno-canvas'),
+  ctx: document.getElementById('anno-canvas').getContext('2d'),
+  img: null, shapes: [], tool: 'pen', color: '#e53935',
+  drawing: false, cur: null, photo: null, onDone: null,
+};
+function openAnnotator(photo, onDone){
+  anno.photo = photo; anno.onDone = onDone; anno.shapes = []; anno.cur = null;
+  const img = new Image();
+  img.onload = () => {
+    anno.img = img;
+    anno.canvas.width = img.naturalWidth;
+    anno.canvas.height = img.naturalHeight;
+    annoRedraw();
+    anno.el.hidden = false;
+    document.body.style.overflow = 'hidden';
+  };
+  img.src = photo.data;
+}
+function closeAnnotator(){ anno.el.hidden = true; document.body.style.overflow = ''; }
+function lw(){ return Math.max(3, Math.round(anno.canvas.width / 160)); }
+function fs(){ return Math.max(18, Math.round(anno.canvas.width / 16)); }
+function annoRedraw(tempShape){
+  const { ctx, canvas, img } = anno;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  for(const s of anno.shapes) drawShape(ctx, s);
+  if(tempShape) drawShape(ctx, tempShape);
+}
+function drawShape(ctx, s){
+  ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
+  ctx.lineWidth = s.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if(s.t === 'pen'){
+    if(s.pts.length < 2) return;
+    ctx.beginPath(); ctx.moveTo(s.pts[0][0], s.pts[0][1]);
+    for(const p of s.pts) ctx.lineTo(p[0], p[1]);
+    ctx.stroke();
+  } else if(s.t === 'rect'){
+    ctx.strokeRect(Math.min(s.x1,s.x2), Math.min(s.y1,s.y2), Math.abs(s.x2-s.x1), Math.abs(s.y2-s.y1));
+  } else if(s.t === 'arrow'){
+    ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+    const ang = Math.atan2(s.y2-s.y1, s.x2-s.x1), hl = s.w * 4;
+    ctx.beginPath();
+    ctx.moveTo(s.x2, s.y2);
+    ctx.lineTo(s.x2 - hl*Math.cos(ang - 0.45), s.y2 - hl*Math.sin(ang - 0.45));
+    ctx.moveTo(s.x2, s.y2);
+    ctx.lineTo(s.x2 - hl*Math.cos(ang + 0.45), s.y2 - hl*Math.sin(ang + 0.45));
+    ctx.stroke();
+  } else if(s.t === 'text'){
+    ctx.font = `bold ${s.size}px sans-serif`;
+    ctx.lineWidth = Math.max(2, s.size/8); ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    ctx.strokeText(s.str, s.x, s.y);
+    ctx.fillText(s.str, s.x, s.y);
+  }
+}
+function annoPos(e){
+  const r = anno.canvas.getBoundingClientRect();
+  return [ (e.clientX - r.left) * anno.canvas.width / r.width, (e.clientY - r.top) * anno.canvas.height / r.height ];
+}
+anno.canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const [x,y] = annoPos(e);
+  if(anno.tool === 'text'){
+    openModal(`<h3>文字を入れる</h3><input id="anno-text-input" placeholder="例：ここが破損" autofocus>
+      <div class="modal-actions"><button class="btn btn-outline" id="m-cancel">キャンセル</button><button class="btn btn-primary" id="m-ok">配置する</button></div>`);
+    document.getElementById('m-cancel').onclick = closeModal;
+    document.getElementById('m-ok').onclick = () => {
+      const str = document.getElementById('anno-text-input').value.trim();
+      if(str) { anno.shapes.push({ t:'text', x, y, str, color:anno.color, size:fs(), w:lw() }); annoRedraw(); }
+      closeModal();
+    };
+    return;
+  }
+  anno.drawing = true;
+  anno.canvas.setPointerCapture(e.pointerId);
+  if(anno.tool === 'pen') anno.cur = { t:'pen', pts:[[x,y]], color:anno.color, w:lw() };
+  else anno.cur = { t:anno.tool, x1:x, y1:y, x2:x, y2:y, color:anno.color, w:lw() };
+});
+anno.canvas.addEventListener('pointermove', e => {
+  if(!anno.drawing || !anno.cur) return;
+  const [x,y] = annoPos(e);
+  if(anno.cur.t === 'pen') anno.cur.pts.push([x,y]);
+  else { anno.cur.x2 = x; anno.cur.y2 = y; }
+  annoRedraw(anno.cur);
+});
+anno.canvas.addEventListener('pointerup', () => {
+  if(anno.drawing && anno.cur){ anno.shapes.push(anno.cur); anno.cur = null; annoRedraw(); }
+  anno.drawing = false;
+});
+document.querySelectorAll('#anno-top .tool[data-tool]').forEach(b => b.onclick = () => {
+  anno.tool = b.dataset.tool;
+  document.querySelectorAll('#anno-top .tool[data-tool]').forEach(x => x.classList.toggle('on', x === b));
+});
+document.querySelectorAll('#anno-top .colorbox').forEach(b => b.onclick = () => {
+  anno.color = b.dataset.color;
+  document.querySelectorAll('#anno-top .colorbox').forEach(x => x.classList.toggle('on', x === b));
+});
+document.getElementById('anno-undo').onclick = () => { anno.shapes.pop(); annoRedraw(); };
+document.getElementById('anno-cancel').onclick = closeAnnotator;
+document.getElementById('anno-save').onclick = () => {
+  if(anno.shapes.length){
+    if(!anno.photo.orig) anno.photo.orig = anno.photo.data;
+    annoRedraw();
+    anno.photo.data = anno.canvas.toDataURL('image/jpeg', 0.8);
+  }
+  closeAnnotator();
+  if(anno.onDone) anno.onDone();
+};
+
+/* ================= 図面 ================= */
+let pinModeDrawingId = null;
+document.getElementById('add-drawing-btn').onclick = () => document.getElementById('drawing-input').click();
+document.getElementById('drawing-input').onchange = async e => {
+  const c = getCase(currentCaseId); if(!c) return;
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const data = await compressImage(f, 1600, 0.8);
+    c.drawings.push({ id:uid(), name:`図面${c.drawings.length + 1}`, data, pins:[] });
+    if(!saveDB()) c.drawings.pop();
+    renderDrawings(c);
+  }catch(err){ toast('画像の読み込みに失敗しました'); }
+  e.target.value = '';
+};
+function renderDrawings(c){
+  const wrap = document.getElementById('drawing-list');
+  if(!c.drawings.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = c.drawings.map(d => `
+    <div class="drawing-card" data-id="${d.id}">
+      <input value="${esc(d.name)}" data-role="name" style="font-weight:700">
+      <div class="drawing-wrap ${pinModeDrawingId === d.id ? 'pinmode' : ''}" data-role="img">
+        <img src="${d.data}">
+        ${d.pins.map((p,idx) => `<div class="pin" data-pin="${p.id}" style="left:${p.x}%;top:${p.y}%"><span>${idx+1}</span></div>`).join('')}
+      </div>
+      <ul class="pin-list">
+        ${d.pins.map((p,idx) => `<li><span class="pin-no">${idx+1}</span><span>${esc(p.label || '（内容未入力）')}${p.memo ? '：' + esc(p.memo) : ''}</span></li>`).join('')}
+      </ul>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-outline btn-sm ${pinModeDrawingId === d.id ? 'on' : ''}" data-role="pinmode">${pinModeDrawingId === d.id ? '📍 タップでピン追加中（終了）' : '📍 ピンを追加'}</button>
+        <button class="btn btn-danger btn-sm" data-role="del">図面を削除</button>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.drawing-card').forEach(card => {
+    const d = c.drawings.find(x => x.id === card.dataset.id);
+    card.querySelector('[data-role="name"]').oninput = e => { d.name = e.target.value; saveDB(); };
+    card.querySelector('[data-role="pinmode"]').onclick = () => {
+      pinModeDrawingId = pinModeDrawingId === d.id ? null : d.id;
+      renderDrawings(c);
+      if(pinModeDrawingId) toast('図面上をタップするとピンが打てます');
+    };
+    card.querySelector('[data-role="del"]').onclick = () => {
+      if(!confirm(`「${d.name}」を削除しますか？`)) return;
+      c.drawings = c.drawings.filter(x => x.id !== d.id);
+      saveDB(); renderDrawings(c);
+    };
+    const imgWrap = card.querySelector('[data-role="img"]');
+    imgWrap.addEventListener('click', e => {
+      const pinEl = e.target.closest('.pin');
+      if(pinEl){ openPinModal(c, d, d.pins.find(p => p.id === pinEl.dataset.pin)); return; }
+      if(pinModeDrawingId !== d.id) return;
+      const r = imgWrap.getBoundingClientRect();
+      const x = Math.round((e.clientX - r.left) / r.width * 1000) / 10;
+      const y = Math.round((e.clientY - r.top) / r.height * 1000) / 10;
+      const pin = { id:uid(), x, y, label:'', memo:'' };
+      d.pins.push(pin);
+      openPinModal(c, d, pin, true);
+    });
+  });
+}
+function openPinModal(c, d, pin, isNew){
+  openModal(`<h3>ピン ${d.pins.indexOf(pin) + 1}（${esc(d.name)}）</h3>
+    <label>内容</label><input id="pin-label" value="${esc(pin.label)}" placeholder="例：コンセント破損箇所">
+    <label>メモ</label><textarea id="pin-memo" rows="2">${esc(pin.memo)}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" id="pin-del">削除</button>
+      <button class="btn btn-primary" id="pin-ok">保存</button>
+    </div>`);
+  document.getElementById('pin-ok').onclick = () => {
+    pin.label = document.getElementById('pin-label').value.trim();
+    pin.memo = document.getElementById('pin-memo').value.trim();
+    saveDB(); closeModal(); renderDrawings(c);
+  };
+  document.getElementById('pin-del').onclick = () => {
+    d.pins = d.pins.filter(p => p !== pin);
+    saveDB(); closeModal(); renderDrawings(c);
+  };
+  if(isNew) saveDB();
+}
+
+/* ================= 工程表 ================= */
+function taskState(t){
+  const td = today();
+  const prog = Number(t.progress || 0);
+  if(prog >= 100) return 'done';
+  if(t.end && t.end < td) return 'late';
+  if(t.start && t.start <= td && (!t.end || t.end >= td)) return 'active';
+  return 'plan';
+}
+function renderGantt(c){
+  const wrap = document.getElementById('gantt-wrap');
+  if(!c.tasks.length){ wrap.innerHTML = `<p class="muted">工程を追加すると、簡易ガントチャートが表示されます。</p>`; return; }
+  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const starts = tasks.map(t => t.start).filter(Boolean);
+  const ends = tasks.map(t => t.end || t.start).filter(Boolean);
+  const min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
+  const max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
+  const total = Math.max(dayDiff(min, max) + 1, 1);
+  const td = today();
+  const todayPos = (td >= min && td <= max) ? (dayDiff(min, td) + 0.5) / total * 100 : null;
+  wrap.innerHTML = `<div class="g-range">${jpShort(min)} 〜 ${jpShort(max)}（${total}日間）</div>` +
+    tasks.map(t => {
+      const s = t.start || min, e = t.end || s;
+      const left = dayDiff(min, s) / total * 100;
+      const width = Math.max((dayDiff(s, e) + 1) / total * 100, 2);
+      const st = taskState(t);
+      return `<div class="g-row">
+        <div class="g-name">${esc(t.name || '（無題）')}<div class="g-sub">${jpShort(s)}〜${jpShort(e)} ${t.assignee ? '・' + esc(t.assignee) : ''} ・${Number(t.progress||0)}%</div></div>
+        <div class="g-track">
+          <div class="g-bar ${st}" style="left:${left}%;width:${width}%"><div class="g-fill" style="width:${Number(t.progress||0)}%"></div></div>
+          ${todayPos != null ? `<div class="g-today" style="left:${todayPos}%"></div>` : ''}
+        </div>
+        <button class="g-edit" data-id="${t.id}">✎</button>
+      </div>`;
+    }).join('');
+  wrap.querySelectorAll('.g-edit').forEach(b => b.onclick = () => openTaskModal(c, c.tasks.find(t => t.id === b.dataset.id)));
+}
+document.getElementById('add-task-btn').onclick = () => {
+  const c = getCase(currentCaseId);
+  openTaskModal(c, null);
+};
+function openTaskModal(c, task){
+  const t = task || { id:uid(), name:'', start:today(), end:today(), progress:0, assignee:'' };
+  openModal(`<h3>${task ? '工程の編集' : '工程の追加'}</h3>
+    <label>作業名</label><input id="t-name" value="${esc(t.name)}" placeholder="例：配線工事">
+    <div class="row2">
+      <div><label>開始日</label><input type="date" id="t-start" value="${esc(t.start)}"></div>
+      <div><label>終了日</label><input type="date" id="t-end" value="${esc(t.end)}"></div>
+    </div>
+    <div class="row2">
+      <div><label>進捗（%）</label><input type="number" id="t-prog" min="0" max="100" inputmode="numeric" value="${esc(t.progress)}"></div>
+      <div><label>担当</label><input id="t-assignee" value="${esc(t.assignee)}" placeholder="例：佐藤班"></div>
+    </div>
+    <div class="modal-actions">
+      ${task ? '<button class="btn btn-danger btn-sm" id="t-del">削除</button>' : '<button class="btn btn-outline" id="t-cancel">キャンセル</button>'}
+      <button class="btn btn-primary" id="t-ok">保存</button>
+    </div>`);
+  document.getElementById('t-ok').onclick = () => {
+    t.name = document.getElementById('t-name').value.trim();
+    t.start = document.getElementById('t-start').value;
+    t.end = document.getElementById('t-end').value;
+    if(t.end && t.start && t.end < t.start) t.end = t.start;
+    t.progress = Math.min(100, Math.max(0, Number(document.getElementById('t-prog').value) || 0));
+    t.assignee = document.getElementById('t-assignee').value.trim();
+    if(!task) c.tasks.push(t);
+    saveDB(); closeModal(); renderGantt(c);
+  };
+  const del = document.getElementById('t-del');
+  if(del) del.onclick = () => { c.tasks = c.tasks.filter(x => x.id !== t.id); saveDB(); closeModal(); renderGantt(c); };
+  const cancel = document.getElementById('t-cancel');
+  if(cancel) cancel.onclick = closeModal;
+}
+
+/* ================= 日報 ================= */
+function getReport(){ const c = getCase(currentCaseId); return c && c.reports.find(r => r.id === currentReportId); }
+function renderReportList(c){
+  const wrap = document.getElementById('report-list');
+  const sum = document.getElementById('report-summary');
+  const totalMen = c.reports.reduce((s,r) => s + reportWorkers(r), 0);
+  const ym = today().slice(0,7);
+  const monthMen = c.reports.filter(r => r.date.startsWith(ym)).reduce((s,r) => s + reportWorkers(r), 0);
+  sum.innerHTML = c.reports.length
+    ? `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>（今月 ${monthMen}人）`
+    : '日報を書くと、事務所からも作業状況・人数・写真を確認できます。';
+  const sorted = [...c.reports].sort((a,b) => b.date.localeCompare(a.date));
+  wrap.innerHTML = sorted.map(r => `
+    <div class="report-card" data-id="${r.id}">
+      <div class="rep-date"><b>${jpShort(r.date)}</b><span>(${youbi(r.date)}) ${esc(r.weather||'')}</span></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.content || '（作業内容未入力）')}</div>
+        <div class="muted" style="font-size:11.5px">人数 ${reportWorkers(r)}人${r.progress !== '' && r.progress != null ? '｜進捗' + r.progress + '%' : ''}｜写真${(r.photos||[]).length}枚${r.author ? '｜' + esc(r.author) : ''}</div>
+      </div>
+      <span style="color:var(--line);font-size:20px">›</span>
+    </div>`).join('');
+  wrap.querySelectorAll('.report-card').forEach(el => el.onclick = () => { collectCaseForm(); currentReportId = el.dataset.id; show('report'); });
+}
+document.getElementById('add-report-btn').onclick = () => {
+  collectCaseForm();
+  const c = getCase(currentCaseId);
+  const exist = c.reports.find(r => r.date === today());
+  if(exist && !confirm('今日の日報は既にあります。新しく別の日報を作りますか？')){ currentReportId = exist.id; show('report'); return; }
+  const r = { id:uid(), date:today(), weather:'晴れ', author:db.company.person||'', workers:[{company:'自社', count:1}],
+    content:'', tomorrow:'', safety:'', progress:'', photos:[] };
+  c.reports.push(r); currentReportId = r.id; show('report');
+};
+function renderReport(){
+  const r = getReport(); if(!r){ show('case'); return; }
+  document.getElementById('r-date').value = r.date;
+  document.getElementById('r-weather').value = r.weather;
+  document.getElementById('r-author').value = r.author;
+  document.getElementById('r-content').value = r.content;
+  document.getElementById('r-progress').value = r.progress;
+  document.getElementById('r-tomorrow').value = r.tomorrow;
+  document.getElementById('r-safety').value = r.safety;
+  renderWorkerRows(r);
+  renderPhotoGrid(r.photos, 'r-photo-grid', 'r-photo-input', () => renderReport());
+  updateReportShare();
+}
+function renderWorkerRows(r){
+  const tbody = document.getElementById('worker-rows');
+  tbody.innerHTML = r.workers.map((w,idx) => `<tr>
+    <td><input data-f="company" data-idx="${idx}" value="${esc(w.company)}" placeholder="会社・班名"></td>
+    <td style="width:86px"><input data-f="count" data-idx="${idx}" type="number" min="0" inputmode="numeric" value="${esc(w.count)}" placeholder="人数"></td>
+    <td style="width:30px"><button class="rm" data-idx="${idx}">✕</button></td>
+  </tr>`).join('');
+  tbody.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+    r.workers[Number(inp.dataset.idx)][inp.dataset.f] = inp.value;
+    updateWorkerSum(r); updateReportShare();
+  });
+  tbody.querySelectorAll('.rm').forEach(b => b.onclick = () => {
+    r.workers.splice(Number(b.dataset.idx),1); renderWorkerRows(r); saveDB();
+  });
+  updateWorkerSum(r);
+}
+function updateWorkerSum(r){
+  document.getElementById('wk-sum').innerHTML = `合計 <b>${reportWorkers(r)}人</b>`;
+}
+document.getElementById('add-worker-btn').onclick = () => {
+  const r = getReport(); if(!r) return;
+  r.workers.push({ company:'', count:'' });
+  renderWorkerRows(r);
+};
+function collectReportForm(){
+  const r = getReport(); if(!r || currentView !== 'report') return;
+  r.date = document.getElementById('r-date').value || r.date;
+  r.weather = document.getElementById('r-weather').value;
+  r.author = document.getElementById('r-author').value.trim();
+  r.content = document.getElementById('r-content').value.trim();
+  r.progress = document.getElementById('r-progress').value;
+  r.tomorrow = document.getElementById('r-tomorrow').value.trim();
+  r.safety = document.getElementById('r-safety').value.trim();
+  const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+}
+function nippoShareText(c, r){
+  const men = (r.workers||[]).filter(w => w.company || w.count).map(w => `${w.company||'—'}${w.count||0}名`).join('・');
+  return `【工事日報】${jpDate(r.date)}（${youbi(r.date)}）${r.weather||''}
+現場：${c.title || '—'}
+作業人数：${men || '—'}（計${reportWorkers(r)}名）${r.progress !== '' && r.progress != null ? `\n全体進捗：${r.progress}%` : ''}
+
+■本日の作業
+${r.content || '—'}
+
+■明日の予定
+${r.tomorrow || '—'}${r.safety ? `\n\n■安全・連絡事項\n${r.safety}` : ''}
+
+記入者：${r.author || '—'}`;
+}
+function updateReportShare(){
+  const c = getCase(currentCaseId), r = getReport();
+  if(!c || !r) return;
+  collectReportFormSoft();
+  document.getElementById('r-share').textContent = nippoShareText(c, r);
+}
+function collectReportFormSoft(){
+  const r = getReport(); if(!r || currentView !== 'report') return;
+  r.content = document.getElementById('r-content').value.trim();
+  r.tomorrow = document.getElementById('r-tomorrow').value.trim();
+  r.safety = document.getElementById('r-safety').value.trim();
+  r.progress = document.getElementById('r-progress').value;
+  r.weather = document.getElementById('r-weather').value;
+  r.author = document.getElementById('r-author').value.trim();
+}
+['r-content','r-tomorrow','r-safety','r-progress','r-weather','r-author','r-date'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateReportShare);
+});
+document.getElementById('r-copy-btn').onclick = () => copyText(document.getElementById('r-share').textContent);
+document.getElementById('del-report-btn').onclick = () => {
+  if(!confirm('この日報を削除しますか？')) return;
+  const c = getCase(currentCaseId);
+  c.reports = c.reports.filter(r => r.id !== currentReportId);
+  currentReportId = null; currentCaseTab = 'reports'; show('case'); toast('日報を削除しました');
+};
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); toast('コピーしました'); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); toast('コピーしました');
+  }
+}
+
+/* ================= 文章の自動生成（ルールベース下書き） ================= */
+const dangerRank = { '高':3, '中':2, '低':1 };
+const urgencyRank = { '早急な対応が必要':3, '早めの対応を推奨':2, '経過観察でよい':1 };
+function riskText(it){
+  if(it.danger === '高') return 'このまま放置した場合、事故や故障の拡大など二次被害につながる危険性が高い状態です。';
+  if(it.danger === '中') return '直ちに重大な支障が出る状態ではありませんが、劣化の進行により症状が悪化するおそれがあります。';
+  return '現時点で緊急性は高くありませんが、今後のために定期的な点検をおすすめします。';
+}
+function itemDesc(it){
+  let s = '';
+  if(it.place) s += `${it.place}にて、`;
+  s += it.situation ? `${it.situation}状態を確認いたしました。` : '不具合を確認いたしました。';
+  if(it.cause) s += `現地での確認結果から、原因は${it.cause}によるものと考えられます。`;
+  return s;
+}
+function costRange(it){
+  const mn = Number(it.costMin), mx = Number(it.costMax);
+  if(it.costMin && it.costMax) return `${fmtYen(mn)}〜${fmtYen(mx)}円（税別・目安）`;
+  if(it.costMin) return `${fmtYen(mn)}円〜（税別・目安）`;
+  if(it.costMax) return `〜${fmtYen(mx)}円（税別・目安）`;
+  return 'お見積りにてご提示';
+}
+function genOverview(c){
+  const n = c.items.length;
+  const high = c.items.filter(i => i.danger === '高').length;
+  const mid = c.items.filter(i => i.danger === '中').length;
+  let s = `現地調査の結果、${n}か所の不具合・要対応箇所を確認いたしました。`;
+  if(high) s += `うち${high}か所は危険度が高く、早急な対応をおすすめいたします。`;
+  else if(mid) s += `重大な危険は確認されませんでしたが、劣化の進行を防ぐため早めの対応をおすすめいたします。`;
+  else s += `いずれも緊急性は高くありませんが、今後の維持管理のため計画的な補修をご検討ください。`;
+  s += `\n各箇所の詳細は下記のとおりです。ご不明点がございましたら、お気軽にお問い合わせください。`;
+  return s;
+}
+const plainDict = [
+  ['経年劣化','長年の使用による傷み'], ['絶縁不良','電気が漏れやすくなっている状態'],
+  ['漏水','水漏れ'], ['腐食','サビ・傷み'], ['短絡','ショート'], ['トラッキング','ほこりによる発火現象'],
+  ['クラック','ひび割れ'], ['シーリング','すき間をふさぐゴム状の目地材'], ['笠木','壁や手すりの上部のカバー'],
+  ['爆裂','コンクリートの内部のサビによる割れ'], ['幹線','建物へ電気を送るメインの電線'],
+  ['分電盤','ブレーカーの箱'], ['止水栓','水を止めるための栓'], ['防水層','雨水の侵入を防ぐ層'],
+];
+function toPlain(text){
+  let t = String(text || '');
+  for(const [a,b] of plainDict) t = t.split(a).join(`${b}`);
+  return t;
+}
+
+/* ================= 書類レンダリング ================= */
+function docShell(titleText, bodyHtml){
+  const co = db.company;
+  const logo = co.logo ? `<img src="${co.logo}"><br>` : '';
+  return `<div class="doc">
+    <div class="doc-head">
+      <div>
+        <div class="doc-title">${titleText}</div>
+        <div class="doc-date">作成日：${jpDate(today())}</div>
+      </div>
+      <div class="co">${logo}<b>${esc(co.name || '（設定で会社名を登録）')}</b><br>${esc(co.address||'')}${co.address?'<br>':''}${co.tel ? 'TEL：' + esc(co.tel) : ''}${co.tel && co.email ? '　' : ''}${esc(co.email||'')}${(co.tel||co.email)?'<br>':''}${co.person ? '担当：' + esc(co.person) : ''}</div>
+    </div>${bodyHtml}</div>`;
+}
+function baseInfoTable(c){
+  return `<table>
+    <tr><th>件名</th><td>${esc(c.title||'')}</td></tr>
+    <tr><th>依頼者</th><td>${esc(c.client ? c.client + ' ' + c.honor : '')}</td></tr>
+    <tr><th>調査場所</th><td>${esc(c.address||'')}</td></tr>
+    <tr><th>調査日</th><td>${jpDate(c.date)}</td></tr>
+    <tr><th>調査担当</th><td>${esc(c.surveyor||'')}</td></tr>
+  </table>`;
+}
+function photosHtml(photos){
+  if(!photos || !photos.length) return '';
+  return `<div class="item-photos">${photos.map(p =>
+    `<figure><img src="${p.data}"><figcaption>${esc(p.label)}</figcaption></figure>`).join('')}</div>`;
+}
+function drawingsHtml(c){
+  if(!c.drawings.length) return '';
+  let h = `<div class="sec">添付図面</div>`;
+  c.drawings.forEach(d => {
+    h += `<p style="font-weight:700;font-size:12px;margin-top:6px">${esc(d.name)}</p>
+    <div class="dwg"><img src="${d.data}">
+      ${d.pins.map((p,idx) => `<div class="pin" style="left:${p.x}%;top:${p.y}%;width:20px;height:20px;font-size:10px"><span>${idx+1}</span></div>`).join('')}
+    </div>`;
+    if(d.pins.length) h += `<table>${d.pins.map((p,idx) => `<tr><th style="width:36px;text-align:center">${idx+1}</th><td>${esc(p.label||'')}${p.memo ? '　' + esc(p.memo) : ''}</td></tr>`).join('')}</table>`;
+  });
+  return h;
+}
+
+/* ① 現場調査報告書 */
+function buildReport(c){
+  let body = baseInfoTable(c);
+  body += `<div class="sec">総評</div><p>${esc(c.overview || genOverview(c)).replace(/\n/g,'<br>')}</p>`;
+  c.items.forEach((it,idx) => {
+    body += `<div class="sec">調査箇所 ${idx+1}：${esc(it.place||'')}</div>`;
+    body += photosHtml(it.photos);
+    body += `<table>
+      <tr><th>現状</th><td>${esc(itemDesc(it))}</td></tr>
+      <tr><th>原因（所見）</th><td>${esc(it.cause||'—')}</td></tr>
+      <tr><th>危険度</th><td class="risk-${esc(it.danger)}">${esc(it.danger)}</td></tr>
+      <tr><th>危険性</th><td>${esc(riskText(it))}</td></tr>
+      ${it.memo ? `<tr><th>備考</th><td>${esc(it.memo)}</td></tr>` : ''}
+    </table>`;
+  });
+  body += drawingsHtml(c);
+  body += `<div class="foot-note">本報告書は現地調査時点の目視確認に基づくものです。記載の原因・危険性は所見であり、詳細は開口調査等により変わる場合があります。</div>`;
+  return docShell('現場調査報告書', body);
+}
+
+/* ② 改善提案書 */
+function buildProposal(c){
+  const sorted = [...c.items].sort((a,b) =>
+    (dangerRank[b.danger]*2 + urgencyRank[b.urgency]) - (dangerRank[a.danger]*2 + urgencyRank[a.urgency]));
+  let body = baseInfoTable(c);
+  body += `<div class="sec">改善のご提案（優先順位順）</div>`;
+  sorted.forEach((it,idx) => {
+    body += `<div class="kobetsu">
+      <h4><span class="prio">優先度 ${idx+1}</span>${esc(it.place||'')}：${esc(it.action || '補修工事')}</h4>
+      <table>
+        <tr><th>現状</th><td>${esc(it.situation||'')}</td></tr>
+        <tr><th>推奨工事</th><td>${esc(it.action||'')}</td></tr>
+        <tr><th>放置した場合</th><td>${esc(riskText(it))}</td></tr>
+        <tr><th>緊急度</th><td>${esc(it.urgency)}</td></tr>
+        <tr><th>費用の目安</th><td>${costRange(it)}</td></tr>
+      </table>
+    </div>`;
+  });
+  body += `<div class="sec">お願い</div>
+  <p>上記はいずれも現地調査に基づくご提案です。ご希望の箇所のみの施工も可能ですので、ご予算・ご都合に合わせてお気軽にご相談ください。正式なお見積りは別紙にてご提示いたします。</p>
+  <div class="foot-note">費用の目安は概算です。正式な金額はお見積書にてご確認ください。</div>`;
+  return docShell('改善提案書', body);
+}
+
+/* ③ お客様向け簡易版 */
+function buildCustomer(c){
+  let body = `<p class="greeting">${esc(c.client ? c.client + ' ' + c.honor : 'お客様')}<br>
+  このたびは調査のご依頼をありがとうございました。<br>
+  確認した内容を、わかりやすくまとめました。</p>`;
+  c.items.forEach((it,idx) => {
+    const dangerWord = it.danger === '高' ? '⚠️ 早めの対応がおすすめです' : it.danger === '中' ? '△ ようすを見ながら、対応をご検討ください' : '○ いますぐの心配はありません';
+    body += `<div class="sec">${idx+1}. ${esc(toPlain(it.place)||'')}</div>`;
+    body += photosHtml(it.photos);
+    body += `<table>
+      <tr><th>どうなっている？</th><td>${esc(toPlain(it.situation)||'')}</td></tr>
+      <tr><th>なぜ？</th><td>${esc(toPlain(it.cause)||'—')}</td></tr>
+      <tr><th>このままだと？</th><td>${esc(toPlain(riskText(it)))}</td></tr>
+      <tr><th>おすすめの対応</th><td>${esc(toPlain(it.action)||'')}（費用の目安：${costRange(it)}）</td></tr>
+      <tr><th>状態</th><td class="risk-${esc(it.danger)}">${dangerWord}</td></tr>
+    </table>`;
+  });
+  body += `<p>ご不明な点は、どんなことでもお気軽にお尋ねください。<br>${esc(db.company.name||'')}　${esc(db.company.person||'')}　${esc(db.company.tel ? 'TEL:' + db.company.tel : '')}</p>`;
+  return docShell('調査結果のご報告', body);
+}
+
+/* ④ 見積書 */
+function estCalc(c){
+  const lines = c.estimate.lines;
+  const sub = lines.reduce((s,l) => s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
+  const tax = Math.floor(sub * (Number(c.estimate.taxRate)||0) / 100);
+  return { sub, tax, total: sub + tax };
+}
+function buildEstimate(c){
+  const { sub, tax, total } = estCalc(c);
+  let body = `<table>
+    <tr><th>宛先</th><td>${esc(c.client ? c.client + ' ' + c.honor : '')}</td></tr>
+    <tr><th>件名</th><td>${esc(c.title||'')}</td></tr>
+    <tr><th>工事場所</th><td>${esc(c.address||'')}</td></tr>
+  </table>
+  <p style="font-size:14px">下記のとおりお見積り申し上げます。<br>
+  <b style="font-size:17px">御見積金額：${fmtYen(total)}円（税込）</b></p>
+  <table class="est-table">
+    <tr><th>項目</th><th style="width:44px">数量</th><th style="width:44px">単位</th><th style="width:80px">単価(円)</th><th style="width:90px">金額(円)</th></tr>
+    ${c.estimate.lines.map(l => `<tr>
+      <td>${esc(l.name)}</td><td class="num">${esc(l.qty)}</td><td class="num">${esc(l.unit)}</td>
+      <td class="num">${fmtYen(Number(l.price)||0)}</td><td class="num">${fmtYen((Number(l.qty)||0)*(Number(l.price)||0))}</td>
+    </tr>`).join('')}
+    <tr><td colspan="4" style="text-align:right">小計</td><td class="num">${fmtYen(sub)}</td></tr>
+    <tr><td colspan="4" style="text-align:right">消費税（${esc(c.estimate.taxRate)}%）</td><td class="num">${fmtYen(tax)}</td></tr>
+    <tr class="total-row"><td colspan="4" style="text-align:right">合計</td><td class="num">${fmtYen(total)}</td></tr>
+  </table>
+  ${c.estimate.note ? `<div class="foot-note">備考：${esc(c.estimate.note)}</div>` : ''}`;
+  return docShell('御見積書', body);
+}
+
+/* ⑤ 工程表（A4） */
+function buildScheduleDoc(c){
+  if(!c.tasks.length) return docShell('工程表', '<p>工程が登録されていません。「工程」タブで作業を追加してください。</p>');
+  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const starts = tasks.map(t => t.start).filter(Boolean);
+  const ends = tasks.map(t => t.end || t.start).filter(Boolean);
+  const min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
+  const max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
+  const total = Math.max(dayDiff(min, max) + 1, 1);
+  let body = `<table>
+    <tr><th>件名</th><td>${esc(c.title||'')}</td></tr>
+    <tr><th>工事場所</th><td>${esc(c.address||'')}</td></tr>
+    <tr><th>工期</th><td>${c.start || c.end ? jpDate(c.start) + ' 〜 ' + jpDate(c.end) : jpDate(min) + ' 〜 ' + jpDate(max)}</td></tr>
+  </table>
+  <div class="sec">工程（${jpShort(min)} 〜 ${jpShort(max)}・${total}日間）</div>`;
+  body += tasks.map(t => {
+    const s = t.start || min, e = t.end || s;
+    const left = dayDiff(min, s) / total * 100;
+    const width = Math.max((dayDiff(s, e) + 1) / total * 100, 2);
+    const st = taskState(t);
+    const color = st === 'done' ? '#2e9e5b' : st === 'late' ? '#d64541' : st === 'active' ? '#e8762d' : '#9db4cc';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #e5eaf0">
+      <div style="width:130px;flex-shrink:0;font-size:11px;font-weight:700;line-height:1.3">${esc(t.name||'')}<br><span style="font-weight:400;color:#666">${jpShort(s)}〜${jpShort(e)}${t.assignee ? '・' + esc(t.assignee) : ''}・${Number(t.progress||0)}%</span></div>
+      <div style="flex:1;position:relative;height:18px;background:#f2f5f8;border-radius:4px">
+        <div style="position:absolute;left:${left}%;width:${width}%;top:2px;bottom:2px;background:${color};border-radius:3px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  body += `<div class="foot-note">■進行中（オレンジ）　■完了（緑）　■遅延（赤）　■予定（グレー）。工程は現場状況・天候により変更になる場合があります。</div>`;
+  return docShell('工程表', body);
+}
+
+/* ⑥ 工事日報（A4） */
+function buildNippoDoc(c, r){
+  if(!r) return docShell('工事日報', '<p>日報がありません。「日報」タブで作成してください。</p>');
+  const men = (r.workers||[]).filter(w => w.company || w.count);
+  let body = `<table>
+    <tr><th>件名</th><td>${esc(c.title||'')}</td></tr>
+    <tr><th>工事場所</th><td>${esc(c.address||'')}</td></tr>
+    <tr><th>日付</th><td>${jpDate(r.date)}（${youbi(r.date)}）　天候：${esc(r.weather||'')}</td></tr>
+    <tr><th>記入者</th><td>${esc(r.author||'')}</td></tr>
+  </table>
+  <div class="sec">作業人数（出面）</div>
+  <table class="est-table">
+    <tr><th>会社・班</th><th style="width:80px">人数</th></tr>
+    ${men.map(w => `<tr><td>${esc(w.company||'')}</td><td class="num">${esc(w.count||0)}名</td></tr>`).join('')}
+    <tr class="total-row"><td style="text-align:right">合計</td><td class="num">${reportWorkers(r)}名</td></tr>
+  </table>
+  <div class="sec">本日の作業内容</div>
+  <p>${esc(r.content||'—').replace(/\n/g,'<br>')}</p>
+  ${r.progress !== '' && r.progress != null ? `<p><b>全体進捗率：${esc(r.progress)}%</b></p>` : ''}
+  <div class="sec">明日の予定</div>
+  <p>${esc(r.tomorrow||'—').replace(/\n/g,'<br>')}</p>
+  ${r.safety ? `<div class="sec">安全事項・連絡事項</div><p>${esc(r.safety).replace(/\n/g,'<br>')}</p>` : ''}
+  ${(r.photos||[]).length ? `<div class="sec">現場写真</div>` + photosHtml(r.photos) : ''}`;
+  return docShell('工事日報', body);
+}
+
+/* ================= 書類画面 ================= */
+function renderDocs(){
+  const c = getCase(currentCaseId); if(!c){ show('home'); return; }
+  document.querySelectorAll('.doc-tab').forEach(t => t.classList.toggle('active', t.dataset.doc === currentDoc));
+  document.getElementById('estimate-editor').style.display = currentDoc === 'estimate' ? 'block' : 'none';
+  document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'none' : 'none';
+  document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'block' : 'none';
+  document.getElementById('nippo-picker').style.display = currentDoc === 'nippo' ? 'block' : 'none';
+  document.getElementById('doc-preview-wrap').style.display = currentDoc === 'share' ? 'none' : 'block';
+  document.getElementById('action-bar').style.display = currentDoc === 'share' ? 'none' : 'flex';
+
+  if(currentDoc === 'estimate') renderEstimateEditor(c);
+  if(currentDoc === 'share') renderShare(c);
+  if(currentDoc === 'nippo') renderNippoPicker(c);
+  renderPreview(c);
+}
+function pickedNippo(c){
+  return c.reports.find(r => r.id === currentNippoId) || latestReport(c);
+}
+function renderNippoPicker(c){
+  const sel = document.getElementById('nippo-select');
+  const sorted = [...c.reports].sort((a,b) => b.date.localeCompare(a.date));
+  sel.innerHTML = sorted.map(r => `<option value="${r.id}">${jpDate(r.date)}（${youbi(r.date)}）${esc(r.author||'')}</option>`).join('') || '<option value="">（日報がありません）</option>';
+  const cur = pickedNippo(c);
+  if(cur) sel.value = cur.id;
+  sel.onchange = () => { currentNippoId = sel.value; renderPreview(c); };
+}
+function renderPreview(c){
+  const prev = document.getElementById('doc-preview');
+  if(currentDoc === 'report') prev.innerHTML = buildReport(c);
+  else if(currentDoc === 'proposal') prev.innerHTML = buildProposal(c);
+  else if(currentDoc === 'customer') prev.innerHTML = buildCustomer(c);
+  else if(currentDoc === 'estimate') prev.innerHTML = buildEstimate(c);
+  else if(currentDoc === 'schedule') prev.innerHTML = buildScheduleDoc(c);
+  else if(currentDoc === 'nippo') prev.innerHTML = buildNippoDoc(c, pickedNippo(c));
+  else prev.innerHTML = '';
+}
+document.getElementById('doc-tabs').addEventListener('click', e => {
+  const t = e.target.closest('.doc-tab'); if(!t) return;
+  collectEstimateForm();
+  currentDoc = t.dataset.doc;
+  renderDocs();
+});
+function printCurrentDoc(){
+  collectEstimateForm();
+  const c = getCase(currentCaseId); if(!c) return;
+  renderPreview(c);
+  document.getElementById('print-area').innerHTML = document.getElementById('doc-preview').innerHTML;
+  window.print();
+}
+
+/* 見積り編集 */
+function renderEstimateEditor(c){
+  const tbody = document.getElementById('est-rows');
+  tbody.innerHTML = c.estimate.lines.map((l,idx) => `<tr>
+    <td><input data-f="name" data-idx="${idx}" value="${esc(l.name)}"></td>
+    <td><input data-f="qty" data-idx="${idx}" type="number" inputmode="numeric" value="${esc(l.qty)}"></td>
+    <td><input data-f="unit" data-idx="${idx}" value="${esc(l.unit)}"></td>
+    <td><input data-f="price" data-idx="${idx}" type="number" inputmode="numeric" value="${esc(l.price)}"></td>
+    <td><button class="rm" data-idx="${idx}">✕</button></td>
+  </tr>`).join('');
+  tbody.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+    c.estimate.lines[Number(inp.dataset.idx)][inp.dataset.f] = inp.value;
+    updateEstSum(c); renderPreview(c);
+  });
+  tbody.querySelectorAll('.rm').forEach(b => b.onclick = () => {
+    c.estimate.lines.splice(Number(b.dataset.idx),1);
+    renderEstimateEditor(c); renderPreview(c); saveDB();
+  });
+  document.getElementById('est-note').value = c.estimate.note || '';
+  updateEstSum(c);
+}
+function updateEstSum(c){
+  const { sub, tax, total } = estCalc(c);
+  document.getElementById('est-sum').innerHTML = `小計 ${fmtYen(sub)}円 ＋ 消費税 ${fmtYen(tax)}円 ＝ <b>${fmtYen(total)}円</b>`;
+}
+function collectEstimateForm(){
+  const c = getCase(currentCaseId); if(!c || currentView !== 'docs') return;
+  const noteEl = document.getElementById('est-note');
+  if(noteEl) c.estimate.note = noteEl.value;
+}
+document.getElementById('est-add-btn').onclick = () => {
+  const c = getCase(currentCaseId);
+  c.estimate.lines.push({ name:'', qty:1, unit:'式', price:'' });
+  renderEstimateEditor(c); renderPreview(c);
+};
+document.getElementById('est-auto-btn').onclick = () => {
+  const c = getCase(currentCaseId);
+  if(c.estimate.lines.length && !confirm('現在の見積り項目を消して、調査項目から作り直しますか？')) return;
+  c.estimate.lines = c.items.map(it => {
+    const mn = Number(it.costMin)||0, mx = Number(it.costMax)||0;
+    const mid = mn && mx ? Math.round((mn+mx)/2/100)*100 : (mx || mn || '');
+    return { name: `${it.place ? it.place + '　' : ''}${it.action || '補修工事'}`, qty:1, unit:'式', price: mid };
+  });
+  renderEstimateEditor(c); renderPreview(c); saveDB();
+  toast('見積り項目を作成しました。単価を確認してください');
+};
+document.getElementById('est-note').oninput = () => {
+  const c = getCase(currentCaseId); if(c){ c.estimate.note = document.getElementById('est-note').value; renderPreview(c); }
+};
+
+/* 送付文 */
+function renderShare(c){
+  const co = db.company;
+  const client = c.client ? `${c.client} ${c.honor}` : 'お客様';
+  const high = c.items.filter(i => i.danger === '高').length;
+  const mail =
+`${client}
+
+お世話になっております。
+${co.name || '（会社名）'}の${co.person || '（担当者名）'}です。
+
+先日はお時間をいただき、ありがとうございました。
+${jpDate(c.date)}に実施しました現地調査の結果を、添付の資料にてご報告いたします。
+
+【添付資料】
+・現場調査報告書
+・改善提案書（費用の目安つき）
+${high ? `
+調査の結果、早急な対応をおすすめする箇所が${high}か所ございました。
+安全のため、お早めにご検討いただければ幸いです。
+` : ''}
+ご不明な点や、工事のご希望がございましたら、
+お気軽にご連絡ください。
+
+${co.name || ''}　${co.person || ''}
+${co.tel ? 'TEL：' + co.tel : ''}
+${co.email || ''}`;
+  const line =
+`${client}
+お世話になっております、${co.name || '（会社名）'}の${co.person || '（担当）'}です😊
+
+先日の調査結果をまとめた報告書をお送りします📄
+${high ? `早めの対応をおすすめする箇所が${high}か所ありました。` : '確認した内容と、おすすめの対応をまとめています。'}
+
+ご質問はこのままLINEでどうぞ！
+お見積りのご希望もお気軽にご連絡ください。`;
+  document.getElementById('share-mail').textContent = mail;
+  document.getElementById('share-line').textContent = line;
+}
+document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(document.getElementById(b.dataset.copy).textContent));
+
+/* ================= 設定 ================= */
+function renderSettings(){
+  const co = db.company;
+  document.getElementById('s-name').value = co.name;
+  document.getElementById('s-person').value = co.person;
+  document.getElementById('s-address').value = co.address;
+  document.getElementById('s-tel').value = co.tel;
+  document.getElementById('s-email').value = co.email;
+  document.getElementById('s-est-note').value = co.estNote || '';
+  const lp = document.getElementById('s-logo-preview');
+  const ld = document.getElementById('s-logo-del');
+  if(co.logo){ lp.src = co.logo; lp.style.display = 'block'; ld.style.display = 'inline-flex'; }
+  else { lp.style.display = 'none'; ld.style.display = 'none'; }
+}
+document.getElementById('save-settings-btn').onclick = () => {
+  const co = db.company;
+  co.name = document.getElementById('s-name').value.trim();
+  co.person = document.getElementById('s-person').value.trim();
+  co.address = document.getElementById('s-address').value.trim();
+  co.tel = document.getElementById('s-tel').value.trim();
+  co.email = document.getElementById('s-email').value.trim();
+  co.estNote = document.getElementById('s-est-note').value;
+  if(saveDB()) toast('設定を保存しました');
+};
+document.getElementById('s-logo-btn').onclick = () => document.getElementById('s-logo-input').click();
+document.getElementById('s-logo-input').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  db.company.logo = await compressImage(f, 320, 0.85);
+  e.target.value = ''; renderSettings(); saveDB();
+};
+document.getElementById('s-logo-del').onclick = () => { db.company.logo = ''; renderSettings(); saveDB(); };
+
+/* データ管理 */
+document.getElementById('export-btn').onclick = () => {
+  const blob = new Blob([JSON.stringify(db)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `genbarepo_backup_${today()}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('バックアップファイルを保存しました');
+};
+document.getElementById('import-btn').onclick = () => document.getElementById('import-input').click();
+document.getElementById('import-input').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const d = JSON.parse(reader.result);
+      if(!d || !Array.isArray(d.cases)) throw new Error('bad');
+      if(!confirm(`バックアップ（案件 ${d.cases.length} 件）を読み込みます。現在のデータは上書きされます。よろしいですか？`)) return;
+      d.cases.forEach(migrateCase);
+      db = d; saveDB(); toast('読み込みました'); show('home');
+    }catch(err){ alert('ファイルの形式が正しくありません。'); }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+};
+
+/* ================= PWA（ホーム画面アプリ化・オフライン対応） ================= */
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  const b = document.getElementById('install-btn');
+  if(b) b.style.display = 'flex';
+});
+document.getElementById('install-btn').onclick = async () => {
+  if(!deferredInstall){ toast('ブラウザのメニューから「ホーム画面に追加」してください'); return; }
+  deferredInstall.prompt();
+  const res = await deferredInstall.userChoice;
+  if(res.outcome === 'accepted') toast('インストールしました');
+  deferredInstall = null;
+  document.getElementById('install-btn').style.display = 'none';
+};
+
+/* ================= 起動 ================= */
+show('home');
+</script>
+</body>
+</html>
