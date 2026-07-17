@@ -532,6 +532,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);font-weight:400"><input type="checkbox" id="sy-auto" style="width:auto"> 保存後に自動で同期する（推奨）</label>
       <button class="btn btn-primary btn-block" id="sy-save-btn">保存して今すぐ同期</button>
       <div class="muted" id="sy-status" style="margin-top:8px"></div>
+      <button class="btn btn-navy btn-block" id="sy-invite-btn">📨 招待QR・リンクを表示（下請けさん・仲間用）</button>
       <details style="margin-top:10px">
         <summary class="muted" style="cursor:pointer">Xサーバー方式の初回設定（1回だけ）</summary>
         <p class="muted" style="margin-top:6px">
@@ -577,7 +578,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.3（試作版・PWA・クラウド同期：Xサーバー／GitHub対応）<br>
+      <p class="muted">ゲンバレポ v2.4（試作版・PWA・クラウド同期・招待QR対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -615,6 +616,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   </div>
 </div>
 
+<script src="qrcode.js"></script>
 <script>
 'use strict';
 /* ================= データ ================= */
@@ -2035,6 +2037,62 @@ document.getElementById('sy-save-btn').onclick = async () => {
   await syncNow(false);
 };
 
+/* ---- 招待リンク・QRコード（下請けさん・仲間の参加用） ---- */
+function buildInviteLink(){
+  const p = { m:'xserver', u: sync.apiUrl, k: sync.apiKey };
+  const b64 = b64encode(JSON.stringify(p)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return location.origin + location.pathname + '#join=' + b64;
+}
+document.getElementById('sy-invite-btn').onclick = () => {
+  if(!(sync.method === 'xserver' && syncReady())){ toast('先にXサーバー同期を設定してください'); return; }
+  const link = buildInviteLink();
+  let qrImg;
+  try{
+    const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+    qrImg = `<img src="${qr.createDataURL(5, 8)}" alt="招待QR" style="width:230px;max-width:80%;image-rendering:pixelated;display:block;margin:12px auto;border:1px solid var(--line);border-radius:8px">`;
+  }catch(e){
+    qrImg = '<p class="muted">QRの生成に失敗しました。下のリンクをコピーして送ってください。</p>';
+  }
+  openModal(`<h3>📨 仲間・下請けさんを招待</h3>
+    <p class="muted">相手のスマホのカメラでこのQRを読み取ってもらう（またはリンクを送る）だけで、同じ現場データに参加できます。URLや合言葉の入力は不要です。</p>
+    ${qrImg}
+    <label>招待リンク（メッセージで送る場合）</label>
+    <textarea id="invite-link" rows="3" readonly style="font-size:11px">${esc(link)}</textarea>
+    <button class="btn btn-navy btn-sm btn-block" id="invite-copy">リンクをコピー</button>
+    <p class="muted" style="margin-top:10px">⚠️ このQR・リンクを知っている人は<b>すべての案件を見る・編集できます</b>。信頼できる相手にだけ送ってください。<br>（関係を解除したい場合は、サーバーのconfig.phpと各端末の合言葉を新しいものに変えれば、以前のリンクは全部無効になります）</p>
+    <div class="modal-actions"><button class="btn btn-primary" id="invite-close">閉じる</button></div>`);
+  document.getElementById('invite-copy').onclick = () => copyText(link);
+  document.getElementById('invite-close').onclick = closeModal;
+};
+/* 招待リンクを開いたとき：確認→設定を取り込み→即同期 */
+function handleJoinLink(){
+  const m = location.hash.match(/join=([A-Za-z0-9\-_]+)/);
+  if(!m) return false;
+  history.replaceState(null, '', location.pathname + location.search);
+  let p = null;
+  try{
+    let b = m[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b.length % 4) b += '=';
+    p = JSON.parse(b64decode(b));
+  }catch(e){}
+  if(!p || p.m !== 'xserver' || !p.u || !p.k){ toast('招待リンクが正しくありません'); return false; }
+  openModal(`<h3>共有データへの参加</h3>
+    <p>招待リンクを受け取りました。この端末を現場データの共有に参加させますか？</p>
+    <p class="muted" style="margin-top:6px">接続先：${esc(p.u)}</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="join-cancel">やめる</button>
+      <button class="btn btn-primary" id="join-ok">参加する</button>
+    </div>`);
+  document.getElementById('join-cancel').onclick = closeModal;
+  document.getElementById('join-ok').onclick = async () => {
+    sync.method = 'xserver'; sync.apiUrl = p.u; sync.apiKey = p.k; sync.auto = true;
+    saveSync(); closeModal(); setSyncUI(false);
+    const ok = await syncNow(false);
+    if(ok){ toast('参加しました！'); show('home'); }
+  };
+  return true;
+}
+
 /* ================= PWA（ホーム画面アプリ化・オフライン対応） ================= */
 if('serviceWorker' in navigator && location.protocol !== 'file:'){
   window.addEventListener('load', () => {
@@ -2060,7 +2118,7 @@ document.getElementById('install-btn').onclick = async () => {
 /* ================= 起動 ================= */
 show('home');
 setSyncUI(false);
-if(syncReady() && sync.auto) syncNow(true);
+if(!handleJoinLink() && syncReady() && sync.auto) syncNow(true);
 </script>
 </body>
 </html>
