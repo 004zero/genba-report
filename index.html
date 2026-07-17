@@ -307,6 +307,11 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         </div>
         <label>ステータス</label>
         <select id="c-status"><option>調査中</option><option>報告済</option><option>受注</option><option>施工中</option><option>完了</option></select>
+        <div id="c-members-wrap" style="display:none">
+          <label>この案件を見られる人</label>
+          <div id="c-members-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          <div class="muted" style="margin-top:4px;font-size:12px">※ 管理者は常に全案件を見られます。変更は「保存する」で反映されます。</div>
+        </div>
       </div>
       <div class="card">
         <h2>総評・所見（調査報告書に載ります）</h2>
@@ -532,7 +537,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);font-weight:400"><input type="checkbox" id="sy-auto" style="width:auto"> 保存後に自動で同期する（推奨）</label>
       <button class="btn btn-primary btn-block" id="sy-save-btn">保存して今すぐ同期</button>
       <div class="muted" id="sy-status" style="margin-top:8px"></div>
-      <button class="btn btn-navy btn-block" id="sy-invite-btn">📨 招待QR・リンクを表示（下請けさん・仲間用）</button>
+      <button class="btn btn-navy btn-block" id="sy-invite-btn">👥 ユーザー・招待（下請けさん・仲間）</button>
       <details style="margin-top:10px">
         <summary class="muted" style="cursor:pointer">Xサーバー方式の初回設定（1回だけ）</summary>
         <p class="muted" style="margin-top:6px">
@@ -578,7 +583,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.4（試作版・PWA・クラウド同期・招待QR対応）<br>
+      <p class="muted">ゲンバレポ v2.5（試作版・PWA・クラウド同期・マルチアカウント対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -822,6 +827,7 @@ function renderCase(){
   document.getElementById('c-end').value = c.end;
   document.getElementById('c-status').value = c.status;
   document.getElementById('c-overview').value = c.overview;
+  renderCaseMembers(c);
   renderItemList(c);
   renderDrawings(c);
   renderGantt(c);
@@ -839,6 +845,10 @@ function collectCaseForm(){
   c.end = document.getElementById('c-end').value;
   c.status = document.getElementById('c-status').value;
   c.overview = document.getElementById('c-overview').value;
+  const cmAll = document.getElementById('cm-all');
+  if(document.getElementById('c-members-wrap').style.display !== 'none' && cmAll){
+    c.members = cmAll.checked ? null : [...document.querySelectorAll('#c-members-list [data-uid]:checked')].map(x => x.dataset.uid);
+  }
   c.updatedAt = new Date().toISOString();
 }
 document.getElementById('del-case-btn').onclick = () => {
@@ -1945,6 +1955,46 @@ function mergeRemote(text){
   db.cases = [...byId.values()];
   if(remote.company && (remote.company.updatedAt || '') > (db.company.updatedAt || '')) db.company = remote.company;
 }
+/* v2同期（マルチアカウント）: 手元の全データを送り、サーバーが権限に応じてマージ・
+   フィルタした「自分の見えるデータ」を返す。旧サーバー(404)なら false を返して旧方式へ。 */
+async function xsSyncV2(){
+  const res = await fetch(sync.apiUrl + '?action=sync', {
+    method:'POST',
+    headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+    body: JSON.stringify({ cases: db.cases, deleted: db.deleted || [], company: db.company })
+  });
+  if(res.status === 401) throw new Error('合言葉（または招待）が無効です');
+  if(res.status === 404) return false;
+  if(res.status === 413) throw new Error('データが大きすぎます（写真を減らすかサーバー設定を確認）');
+  if(!res.ok) throw new Error('同期エラー HTTP' + res.status);
+  const j = await res.json();
+  db.cases = (j.cases || []).map(migrateCase);
+  db.deleted = j.deleted || [];
+  if(j.company && typeof j.company === 'object' && !Array.isArray(j.company) && Object.keys(j.company).length){
+    db.company = Object.assign({ name:'', person:'', address:'', tel:'', email:'', logo:'', estNote:'' }, j.company);
+  }
+  if(j.user){ sync.user = j.user; }
+  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  return true;
+}
+/* 旧方式（GitHub用・旧サーバー互換）: 端末側でマージして丸ごと書き戻す */
+async function legacySync(){
+  let { sha, text: remoteText } = await remoteGet();
+  mergeRemote(remoteText);
+  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  const text = syncPayload();
+  const stripped = t => t ? t.replace(/"savedAt":"[^"]*"/, '') : null;
+  if(stripped(text) !== stripped(remoteText)){
+    try{ await remotePut(sha, text); }
+    catch(e){
+      if(e.message !== 'CONFLICT') throw e;
+      const r2 = await remoteGet();
+      mergeRemote(r2.text);
+      localStorage.setItem(LS_KEY, JSON.stringify(db));
+      await remotePut(r2.sha, syncPayload());
+    }
+  }
+}
 async function syncNow(silent){
   if(!syncReady()){ if(!silent){ toast('設定でクラウド同期を設定してください'); show('settings'); } return false; }
   if(syncing) return false;
@@ -1952,21 +2002,11 @@ async function syncNow(silent){
   setSyncUI(true);
   try{
     collectAll();
-    let { sha, text: remoteText } = await remoteGet();
-    mergeRemote(remoteText);
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
-    const text = syncPayload();
-    // 変更がなければ書き込まない（remoteのsavedAtを除いて比較）
-    const stripped = t => t ? t.replace(/"savedAt":"[^"]*"/, '') : null;
-    if(stripped(text) !== stripped(remoteText)){
-      try{ await remotePut(sha, text); }
-      catch(e){
-        if(e.message !== 'CONFLICT') throw e;
-        const r2 = await remoteGet();
-        mergeRemote(r2.text);
-        localStorage.setItem(LS_KEY, JSON.stringify(db));
-        await remotePut(r2.sha, syncPayload());
-      }
+    if(sync.method === 'xserver'){
+      const v2ok = await xsSyncV2();
+      if(!v2ok) await legacySync();
+    } else {
+      await legacySync();
     }
     sync.lastSync = new Date().toISOString();
     saveSync();
@@ -1998,9 +2038,10 @@ function renderSyncStatus(err){
   const el = document.getElementById('sy-status');
   if(!el) return;
   if(err){ el.innerHTML = `<span style="color:var(--red)">⚠ ${esc(err)}</span>`; return; }
-  el.textContent = sync.lastSync
+  const who = sync.user ? `　👤 ${sync.user.name}（${sync.user.role === 'admin' ? '管理者' : 'メンバー'}）` : '';
+  el.textContent = (sync.lastSync
     ? `✅ 最終同期：${new Date(sync.lastSync).toLocaleString('ja-JP')}`
-    : (syncReady() ? 'まだ同期していません' : '未設定（下の手順を開いて設定してください）');
+    : (syncReady() ? 'まだ同期していません' : '未設定（下の手順を開いて設定してください）')) + who;
 }
 function updateSyncFields(){
   const m = document.getElementById('sy-method').value;
@@ -2037,15 +2078,89 @@ document.getElementById('sy-save-btn').onclick = async () => {
   await syncNow(false);
 };
 
-/* ---- 招待リンク・QRコード（下請けさん・仲間の参加用） ---- */
-function buildInviteLink(){
-  const p = { m:'xserver', u: sync.apiUrl, k: sync.apiKey };
+/* ---- ユーザー管理・招待（マルチアカウント） ---- */
+let usersCache = null;
+async function xsUsersApi(action, body){
+  const res = await fetch(sync.apiUrl + '?action=' + action, {
+    method: body ? 'POST' : 'GET',
+    headers: Object.assign({ 'X-Api-Key': sync.apiKey }, body ? { 'Content-Type':'application/json' } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(res.status === 403) throw new Error('この操作は管理者のみ可能です');
+  if(res.status === 404) throw new Error('サーバーのapi.phpが旧版です。最新のgenba-api.zipを再アップロード→展開してください');
+  if(res.status === 401) throw new Error('合言葉が無効です');
+  if(!res.ok) throw new Error('HTTP' + res.status);
+  return res.json();
+}
+function inviteLinkFor(key){
+  const p = { m:'xserver', u: sync.apiUrl, k: key };
   const b64 = b64encode(JSON.stringify(p)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   return location.origin + location.pathname + '#join=' + b64;
 }
-document.getElementById('sy-invite-btn').onclick = () => {
+document.getElementById('sy-invite-btn').onclick = async () => {
   if(!(sync.method === 'xserver' && syncReady())){ toast('先にXサーバー同期を設定してください'); return; }
-  const link = buildInviteLink();
+  openModal('<h3>👥 ユーザー・招待</h3><p class="muted">読み込み中…</p>');
+  try{
+    usersCache = (await xsUsersApi('users')).users || [];
+    renderUserManager();
+  }catch(e){
+    modalBox.innerHTML = `<h3>👥 ユーザー・招待</h3><p class="muted">⚠ ${esc(e.message)}</p>
+      <div class="modal-actions"><button class="btn btn-primary" id="um-close">閉じる</button></div>`;
+    document.getElementById('um-close').onclick = closeModal;
+  }
+};
+function renderUserManager(){
+  const rows = [
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1"><b>管理者（自分）</b> <span class="muted" style="font-size:11px">全案件</span></div>
+      <button class="btn btn-navy btn-sm" data-qr="admin">追加端末用QR</button>
+    </div>`,
+    ...usersCache.map(u => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0"><b>${esc(u.name)}</b> <span class="muted" style="font-size:11px">${u.role === 'admin' ? '管理者・全案件' : 'メンバー・割当案件のみ'}</span></div>
+        <button class="btn btn-navy btn-sm" data-qr="${u.id}">招待QR</button>
+        <button class="btn btn-danger btn-sm" data-del="${u.id}">削除</button>
+      </div>`)
+  ].join('');
+  modalBox.innerHTML = `<h3>👥 ユーザー・招待</h3>
+    <p class="muted">メンバーは「割り当てられた案件」と「自分が作った案件」だけ見られます。割り当ては各案件の基本情報にある「この案件を見られる人」で設定します。</p>
+    <div>${rows}</div>
+    <label>新しいメンバーを追加</label>
+    <div style="display:flex;gap:8px">
+      <input id="um-name" placeholder="名前（例：田中電気）">
+      <select id="um-role" style="width:120px"><option value="member">メンバー</option><option value="admin">管理者</option></select>
+    </div>
+    <button class="btn btn-primary btn-block" id="um-add">＋ 追加して招待QRを表示</button>
+    <div class="modal-actions"><button class="btn btn-outline" id="um-close">閉じる</button></div>`;
+  document.getElementById('um-close').onclick = closeModal;
+  document.getElementById('um-add').onclick = async () => {
+    const name = document.getElementById('um-name').value.trim();
+    if(!name){ toast('名前を入力してください'); return; }
+    try{
+      const j = await xsUsersApi('useradd', { name, role: document.getElementById('um-role').value });
+      usersCache.push(j.user);
+      showUserQR(j.user);
+    }catch(e){ toast(e.message); }
+  };
+  modalBox.querySelectorAll('[data-qr]').forEach(b => b.onclick = () => {
+    const u = b.dataset.qr === 'admin'
+      ? { id:'admin', name:'管理者（追加端末）', role:'admin', key: sync.apiKey }
+      : usersCache.find(x => x.id === b.dataset.qr);
+    if(u) showUserQR(u);
+  });
+  modalBox.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    const u = usersCache.find(x => x.id === b.dataset.del);
+    if(!u || !confirm(`${u.name} さんを削除しますか？（この人の招待は使えなくなります）`)) return;
+    try{
+      await xsUsersApi('userdel', { id: u.id });
+      usersCache = usersCache.filter(x => x.id !== u.id);
+      renderUserManager();
+      toast('削除しました');
+    }catch(e){ toast(e.message); }
+  });
+}
+function showUserQR(u){
+  const link = inviteLinkFor(u.key);
   let qrImg;
   try{
     const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
@@ -2053,17 +2168,38 @@ document.getElementById('sy-invite-btn').onclick = () => {
   }catch(e){
     qrImg = '<p class="muted">QRの生成に失敗しました。下のリンクをコピーして送ってください。</p>';
   }
-  openModal(`<h3>📨 仲間・下請けさんを招待</h3>
-    <p class="muted">相手のスマホのカメラでこのQRを読み取ってもらう（またはリンクを送る）だけで、同じ現場データに参加できます。URLや合言葉の入力は不要です。</p>
+  modalBox.innerHTML = `<h3>📨 ${esc(u.name)} さんの招待</h3>
+    <p class="muted">相手のスマホのカメラでこのQRを読み取ってもらう（またはリンクを送る）だけで参加できます。この招待は${esc(u.name)}さん専用で、${u.role === 'admin' ? '<b>全案件</b>を見られます' : '<b>割り当てた案件だけ</b>が見えます'}。</p>
     ${qrImg}
     <label>招待リンク（メッセージで送る場合）</label>
-    <textarea id="invite-link" rows="3" readonly style="font-size:11px">${esc(link)}</textarea>
-    <button class="btn btn-navy btn-sm btn-block" id="invite-copy">リンクをコピー</button>
-    <p class="muted" style="margin-top:10px">⚠️ このQR・リンクを知っている人は<b>すべての案件を見る・編集できます</b>。信頼できる相手にだけ送ってください。<br>（関係を解除したい場合は、サーバーのconfig.phpと各端末の合言葉を新しいものに変えれば、以前のリンクは全部無効になります）</p>
-    <div class="modal-actions"><button class="btn btn-primary" id="invite-close">閉じる</button></div>`);
-  document.getElementById('invite-copy').onclick = () => copyText(link);
-  document.getElementById('invite-close').onclick = closeModal;
-};
+    <textarea rows="3" readonly style="font-size:11px">${esc(link)}</textarea>
+    <button class="btn btn-navy btn-sm btn-block" id="uq-copy">リンクをコピー</button>
+    <div class="modal-actions"><button class="btn btn-outline" id="uq-back">← 一覧へ戻る</button><button class="btn btn-primary" id="uq-close">閉じる</button></div>`;
+  document.getElementById('uq-copy').onclick = () => copyText(link);
+  document.getElementById('uq-back').onclick = renderUserManager;
+  document.getElementById('uq-close').onclick = closeModal;
+}
+/* 案件ごとの公開範囲（管理者のみ表示） */
+async function renderCaseMembers(c){
+  const wrap = document.getElementById('c-members-wrap');
+  wrap.style.display = 'none';
+  if(!(sync.method === 'xserver' && syncReady())) return;
+  if(sync.user && sync.user.role !== 'admin') return;
+  if(usersCache === null){
+    try{ usersCache = (await xsUsersApi('users')).users || []; }catch(e){ usersCache = null; return; }
+  }
+  if(!usersCache.length || currentView !== 'case' || !getCase(currentCaseId) || getCase(currentCaseId).id !== c.id) return;
+  const restricted = Array.isArray(c.members);
+  document.getElementById('c-members-list').innerHTML = `
+    <label style="display:flex;gap:8px;align-items:center;margin:0;font-weight:400;color:var(--text)"><input type="checkbox" id="cm-all" ${restricted ? '' : 'checked'} style="width:auto"> 全員に公開（制限しない）</label>
+    ${usersCache.map(u => `<label class="cm-user" style="display:flex;gap:8px;align-items:center;margin:0;font-weight:400;color:var(--text);${restricted ? '' : 'opacity:.45'}"><input type="checkbox" data-uid="${u.id}" ${restricted && c.members.includes(u.id) ? 'checked' : ''} ${restricted ? '' : 'disabled'} style="width:auto"> ${esc(u.name)}${u.role === 'admin' ? '（管理者・常に全件）' : ''}</label>`).join('')}`;
+  wrap.style.display = 'block';
+  document.getElementById('cm-all').onchange = e => {
+    const on = e.target.checked;
+    document.querySelectorAll('#c-members-list [data-uid]').forEach(cb => { cb.disabled = on; });
+    document.querySelectorAll('.cm-user').forEach(l => l.style.opacity = on ? '.45' : '1');
+  };
+}
 /* 招待リンクを開いたとき：確認→設定を取り込み→即同期 */
 function handleJoinLink(){
   const m = location.hash.match(/join=([A-Za-z0-9\-_]+)/);
