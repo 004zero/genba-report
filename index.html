@@ -392,6 +392,9 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     <div class="ctab" id="ct-schedule">
       <div class="card">
         <h2>工程表</h2>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;font-weight:400;color:var(--text);margin:0 0 8px">
+          <input type="checkbox" id="hide-done-tasks" style="width:auto"> ✅ 完了した工程を隠す
+        </label>
         <div id="gantt-wrap"></div>
         <button class="btn btn-outline btn-block" id="add-task-btn">＋ 工程（作業）を追加</button>
         <button class="btn btn-navy btn-block" id="tpl-task-btn">⚡ テンプレートから工程表を一括作成</button>
@@ -701,7 +704,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.12（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.13（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -745,6 +748,9 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 /* ================= データ ================= */
 const LS_KEY = 'genbaRepoData_v1';
 let db = loadDB();
+/* 端末ごとの表示設定（同期しない） */
+let uiPrefs = (function(){ try{ const p = JSON.parse(localStorage.getItem('genbaRepoUI')); if(p && typeof p === 'object') return p; }catch(e){} return {}; })();
+function saveUiPrefs(){ localStorage.setItem('genbaRepoUI', JSON.stringify(uiPrefs)); }
 function migrateCase(c){
   c.honor = c.honor || '様';
   c.items = c.items || [];
@@ -1529,8 +1535,16 @@ function ganttRange(tasks){
 }
 function renderGantt(c){
   const wrap = document.getElementById('gantt-wrap');
+  const hideCb = document.getElementById('hide-done-tasks');
+  hideCb.checked = !!uiPrefs.hideDoneTasks;
   if(!c.tasks.length){ wrap.innerHTML = `<p class="muted">工程を追加すると、日付つきの工程表（ガントチャート）が表示されます。下のテンプレートを使うと一気に作れます。</p>`; return; }
-  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const all = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const hiddenCount = uiPrefs.hideDoneTasks ? all.filter(t => Number(t.progress||0) >= 100).length : 0;
+  const tasks = uiPrefs.hideDoneTasks ? all.filter(t => Number(t.progress||0) < 100) : all;
+  if(!tasks.length){
+    wrap.innerHTML = `<p class="muted">🎉 すべての工程（${all.length}件）が完了しています。チェックを外すと表示されます。</p>`;
+    return;
+  }
   const { min, total } = ganttRange(tasks);
   const DW = 28, td = today();
   const youbiChar = '日月火水木金土';
@@ -1562,7 +1576,7 @@ function renderGantt(c){
       <div class="gt-row"><div class="gt-name" style="cursor:default;font-size:11px;color:var(--sub)">作業／日付</div><div class="gt-days">${dayRow}</div></div>
       ${rows}
     </div></div>
-    <div class="muted" style="margin-top:6px;font-size:12px">バーまたは作業名をタップで編集。<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定</div>`;
+    <div class="muted" style="margin-top:6px;font-size:12px">バーまたは作業名をタップで編集。<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定${hiddenCount ? `　<b style="color:var(--green)">✅完了${hiddenCount}件を非表示中</b>` : ''}</div>`;
   wrap.querySelectorAll('.gt-bar, .gt-name[data-id]').forEach(el => el.onclick = () => {
     const t = c.tasks.find(x => x.id === el.dataset.id);
     if(t) openTaskModal(c, t);
@@ -1575,6 +1589,12 @@ function renderGantt(c){
 document.getElementById('add-task-btn').onclick = () => {
   const c = getCase(currentCaseId);
   openTaskModal(c, null);
+};
+document.getElementById('hide-done-tasks').onchange = e => {
+  uiPrefs.hideDoneTasks = e.target.checked;
+  saveUiPrefs();
+  const c = getCase(currentCaseId);
+  if(c) renderGantt(c);
 };
 /* ---- 工程テンプレート ---- */
 const TASK_TEMPLATES = {
