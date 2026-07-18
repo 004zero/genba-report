@@ -728,7 +728,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.17（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.18（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2344,23 +2344,38 @@ function buildOrderDoc(c, o){
   return docShell('発注書', body);
 }
 function renderOrderEditor(c){
+  const isMember = sync.user && sync.user.role !== 'admin';
   const sel = document.getElementById('order-select');
   sel.innerHTML = c.orders.length
     ? c.orders.map(o => `<option value="${o.id}">${esc(o.to || '宛先未定')}（${jpShort(o.date)}・${fmtYen(orderCalc(o).total)}円）</option>`).join('')
-    : '<option value="">（まだ発注書がありません）</option>';
+    : `<option value="">（${isMember ? 'あなた宛の発注書はまだありません' : 'まだ発注書がありません'}）</option>`;
   const o = currentOrder(c);
   if(o) sel.value = o.id;
   sel.onchange = () => { currentOrderId = sel.value; renderOrderEditor(c); renderPreview(c); };
   const form = document.getElementById('order-form');
+  document.getElementById('order-new').style.display = isMember ? 'none' : 'block';
+  if(isMember){ form.style.display = 'none'; return; }  /* メンバーは閲覧・印刷のみ（作成・編集は管理者） */
   form.style.display = o ? 'block' : 'none';
   if(!o) return;
-  // 宛先候補（登録メンバー）
+  // 宛先候補（登録メンバー）— 未取得なら取得しておく
   if(usersCache) document.getElementById('o-to-list').innerHTML = usersCache.map(u => `<option value="${esc(u.name)}">`).join('');
+  else if(sync.method === 'xserver' && syncReady()){
+    xsUsersApi('users').then(j => {
+      usersCache = j.users || [];
+      document.getElementById('o-to-list').innerHTML = usersCache.map(u => `<option value="${esc(u.name)}">`).join('');
+    }).catch(() => {});
+  }
   document.getElementById('o-to').value = o.to;
   document.getElementById('o-date').value = o.date;
   document.getElementById('o-pay').value = o.pay;
   document.getElementById('o-note').value = o.note;
-  document.getElementById('o-to').oninput = e => { o.to = e.target.value; renderPreview(c); };
+  document.getElementById('o-to').oninput = e => {
+    o.to = e.target.value;
+    /* 宛先がメンバー名と一致したらIDを紐付け（そのメンバーだけに見せるため） */
+    const hit = (usersCache || []).find(u => u.name === o.to);
+    o.toId = hit ? hit.id : '';
+    renderPreview(c);
+  };
   document.getElementById('o-date').oninput = e => { o.date = e.target.value; renderPreview(c); };
   document.getElementById('o-pay').oninput = e => { o.pay = e.target.value; renderPreview(c); };
   document.getElementById('o-note').oninput = e => { o.note = e.target.value; renderPreview(c); };
@@ -2410,6 +2425,10 @@ document.getElementById('order-new').onclick = () => {
 /* ================= 書類画面 ================= */
 function renderDocs(){
   const c = getCase(currentCaseId); if(!c){ show('home'); return; }
+  const isMember = sync.user && sync.user.role !== 'admin';
+  /* 見積書（お客様向け金額）はメンバーには表示しない */
+  document.querySelector('.doc-tab[data-doc="estimate"]').style.display = isMember ? 'none' : '';
+  if(isMember && currentDoc === 'estimate') currentDoc = 'report';
   document.querySelectorAll('.doc-tab').forEach(t => t.classList.toggle('active', t.dataset.doc === currentDoc));
   document.getElementById('estimate-editor').style.display = currentDoc === 'estimate' ? 'block' : 'none';
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'none' : 'none';
