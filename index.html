@@ -272,11 +272,21 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   <!-- ============ ホーム：ダッシュボード＋案件一覧 ============ -->
   <section class="view" id="view-home">
     <div class="dash" id="dash"></div>
+    <button class="btn btn-outline btn-block" id="sched-btn" style="margin:0 0 12px">📅 全現場の工程管理</button>
     <div id="case-list"></div>
+  </section>
+
+  <!-- ============ 全現場の工程管理 ============ -->
+  <section class="view" id="view-sched">
+    <div class="card"><h2>🔨 今日の作業</h2><div id="sched-today"></div></div>
+    <div class="card"><h2>⚠️ 遅延中の工程</h2><div id="sched-late"></div></div>
+    <div class="card"><h2>📌 7日以内に開始予定</h2><div id="sched-soon"></div></div>
+    <div class="card"><p class="muted">✎ボタンで進捗・日程をその場で更新できます。各現場の工程表の作成・印刷は、案件の「工程」タブと「書類」から行えます。</p></div>
   </section>
 
   <!-- ============ 案件（サブタブ） ============ -->
   <section class="view" id="view-case">
+    <button class="btn btn-block" id="checkin-btn" style="background:var(--green);color:#fff;margin-bottom:12px">✔ 入場チェック（現場に入りました）</button>
     <div class="subtabs" id="case-subtabs">
       <button class="subtab active" data-tab="info">基本</button>
       <button class="subtab" data-tab="items">調査</button>
@@ -350,12 +360,17 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <h2>工程表</h2>
         <div id="gantt-wrap"></div>
         <button class="btn btn-outline btn-block" id="add-task-btn">＋ 工程（作業）を追加</button>
+        <button class="btn btn-navy btn-block" id="tpl-task-btn">⚡ テンプレートから工程表を一括作成</button>
         <div class="muted" style="margin-top:8px">バーの色：<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定　／　「書類」からA4の工程表を印刷できます。</div>
       </div>
     </div>
 
     <!-- 日報一覧 -->
     <div class="ctab" id="ct-reports">
+      <div class="card">
+        <h2>入場記録</h2>
+        <div id="checkin-list" class="muted">まだ入場記録がありません。案件画面上部の「✔入場チェック」を押すと記録されます。</div>
+      </div>
       <div class="card">
         <h2>作業日報</h2>
         <div id="report-summary" class="muted" style="margin-bottom:8px"></div>
@@ -457,11 +472,39 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <button class="doc-tab" data-doc="estimate">見積書</button>
       <button class="doc-tab" data-doc="schedule">工程表</button>
       <button class="doc-tab" data-doc="nippo">工事日報</button>
+      <button class="doc-tab" data-doc="order">発注書</button>
       <button class="doc-tab" data-doc="share">✉ 送付文</button>
     </div>
     <div id="nippo-picker" class="card" style="display:none">
       <label>印刷する日報の日付</label>
       <select id="nippo-select"></select>
+    </div>
+    <div id="order-editor" class="card" style="display:none">
+      <h2>発注書（下請けさんへの発注）</h2>
+      <div class="row2">
+        <div><label>発注書を選択</label><select id="order-select"></select></div>
+        <div><label>&nbsp;</label><button class="btn btn-outline btn-sm btn-block" id="order-new">＋ 新しい発注書</button></div>
+      </div>
+      <div id="order-form" style="display:none">
+        <label>宛先（下請けさん・会社名）</label>
+        <input id="o-to" list="o-to-list" placeholder="例：田中電気"><datalist id="o-to-list"></datalist>
+        <div class="row2">
+          <div><label>発注日</label><input type="date" id="o-date"></div>
+          <div><label>支払条件</label><input id="o-pay" placeholder="例：月末締め翌月末払い"></div>
+        </div>
+        <label>発注内容</label>
+        <div style="overflow-x:auto">
+          <table class="est-edit">
+            <thead><tr><th style="min-width:150px">項目名</th><th style="width:56px">数量</th><th style="width:56px">単位</th><th style="width:96px">単価(円)</th><th></th></tr></thead>
+            <tbody id="order-rows"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-outline btn-sm" id="order-add-row" style="margin-top:8px">＋ 行を追加</button>
+        <div class="est-sum" id="order-sum"></div>
+        <label>備考</label>
+        <textarea id="o-note" rows="2"></textarea>
+        <button class="btn btn-danger btn-sm" id="order-del" style="margin-top:10px">この発注書を削除</button>
+      </div>
     </div>
     <div id="estimate-editor" class="card" style="display:none">
       <h2>見積り項目の編集</h2>
@@ -583,7 +626,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.5（試作版・PWA・クラウド同期・マルチアカウント対応）<br>
+      <p class="muted">ゲンバレポ v2.6（試作版・PWA・マルチアカウント・工程管理・発注書・入場チェック対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -634,6 +677,8 @@ function migrateCase(c){
   c.drawings = c.drawings || [];
   c.tasks = c.tasks || [];
   c.reports = c.reports || [];
+  c.orders = c.orders || [];
+  c.checkins = c.checkins || [];
   c.start = c.start || '';
   c.end = c.end || '';
   return c;
@@ -671,8 +716,8 @@ let currentDoc = 'report';
 let currentCaseTab = 'info';
 let currentNippoId = null;
 
-const views = { home:'view-home', case:'view-case', item:'view-item', report:'view-report', docs:'view-docs', settings:'view-settings' };
-const titles = { home:'ゲンバレポ', case:'案件', item:'調査項目', report:'作業日報', docs:'書類の作成', settings:'設定' };
+const views = { home:'view-home', case:'view-case', item:'view-item', report:'view-report', docs:'view-docs', settings:'view-settings', sched:'view-sched' };
+const titles = { home:'ゲンバレポ', case:'案件', item:'調査項目', report:'作業日報', docs:'書類の作成', settings:'設定', sched:'全現場の工程管理' };
 
 function collectAll(){
   if(currentView === 'case') collectCaseForm();
@@ -711,6 +756,7 @@ function show(view){
   if(view === 'report') renderReport();
   if(view === 'docs') renderDocs();
   if(view === 'settings') renderSettings();
+  if(view === 'sched') renderSched();
   window.scrollTo(0,0);
   saveDB();
 }
@@ -778,6 +824,8 @@ function renderHome(){
     const lr = latestReport(c);
     const dly = delayedTasks(c).length;
     let sub = '';
+    const inToday = c.checkins.filter(k => k.date === t).length;
+    if(inToday) sub += `🟢入場${inToday}人｜`;
     if(lr){
       const age = dayDiff(lr.date, t);
       sub += age <= 0 ? `日報:本日済` : (age >= 3 && isActive(c) ? `<span class="alert-txt">日報:${age}日前</span>` : `日報:${jpShort(lr.date)}`);
@@ -832,6 +880,48 @@ function renderCase(){
   renderDrawings(c);
   renderGantt(c);
   renderReportList(c);
+  renderCheckinBtn(c);
+  renderCheckinList(c);
+}
+/* ---- 入場チェック（ワンタップ） ---- */
+function myUid(){ return (sync.user && sync.user.id) || 'local'; }
+function myUname(){ return (sync.user && sync.user.name) || db.company.person || '担当者'; }
+function renderCheckinBtn(c){
+  const btn = document.getElementById('checkin-btn');
+  const mine = c.checkins.find(k => k.date === today() && k.userId === myUid());
+  btn.textContent = mine ? '✅ 本日入場済み（タップで取消）' : '✔ 入場チェック（現場に入りました）';
+  btn.style.background = mine ? '#8fbfa3' : 'var(--green)';
+  btn.onclick = () => {
+    const cur = getCase(currentCaseId); if(!cur) return;
+    const idx = cur.checkins.findIndex(k => k.date === today() && k.userId === myUid());
+    if(idx >= 0){
+      cur.checkins.splice(idx, 1);
+      toast('入場チェックを取り消しました');
+    } else {
+      const d = new Date();
+      cur.checkins.push({ id: uid(), date: today(), time: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
+        userId: myUid(), name: myUname() });
+      toast('入場を記録しました。ご安全に！');
+    }
+    cur.updatedAt = new Date().toISOString();
+    saveDB();
+    renderCheckinBtn(cur); renderCheckinList(cur);
+  };
+}
+function renderCheckinList(c){
+  const el = document.getElementById('checkin-list');
+  if(!c.checkins.length){
+    el.textContent = 'まだ入場記録がありません。案件画面上部の「✔入場チェック」を押すと記録されます。';
+    return;
+  }
+  const byDate = {};
+  c.checkins.forEach(k => { (byDate[k.date] = byDate[k.date] || []).push(k); });
+  const dates = Object.keys(byDate).sort().reverse().slice(0, 14);
+  el.innerHTML = dates.map(d => {
+    const names = byDate[d].sort((a,b) => (a.time||'').localeCompare(b.time||''))
+      .map(k => `${esc(k.name)}<span style="font-size:11px;color:var(--sub)">(${esc(k.time||'')})</span>`).join('、 ');
+    return `<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${jpShort(d)}(${youbi(d)})</b>　🟢 ${names}　<span style="font-size:11px">計${byDate[d].length}人</span></div>`;
+  }).join('');
 }
 function collectCaseForm(){
   const c = getCase(currentCaseId); if(!c || currentView !== 'case') return;
@@ -1237,6 +1327,81 @@ document.getElementById('add-task-btn').onclick = () => {
   const c = getCase(currentCaseId);
   openTaskModal(c, null);
 };
+/* ---- 工程テンプレート ---- */
+const TASK_TEMPLATES = {
+  'シンプル（4工程）': [['準備・段取り',1],['施工',3],['検査・手直し',1],['完了・引渡し',1]],
+  '電気工事': [['現場調査・準備',1],['材料手配',2],['配線工事',2],['器具付け',1],['検査・試験',1],['引渡し',1]],
+  '内装リフォーム': [['養生・解体',2],['下地補修',2],['内装仕上げ',3],['美装クリーニング',1],['検査・引渡し',1]],
+  '外壁塗装': [['足場設置',1],['高圧洗浄',1],['養生',1],['下塗り',1],['中塗り・上塗り',2],['検査',1],['足場解体・引渡し',1]],
+  '設備点検': [['事前準備・連絡',1],['点検実施',1],['報告書作成・提出',1]],
+};
+document.getElementById('tpl-task-btn').onclick = () => {
+  const c = getCase(currentCaseId); if(!c) return;
+  openModal(`<h3>⚡ テンプレートから工程表を作成</h3>
+    <label>工事の種類</label>
+    <select id="tpl-select">${Object.keys(TASK_TEMPLATES).map(k => `<option>${k}</option>`).join('')}</select>
+    <label>開始日</label>
+    <input type="date" id="tpl-start" value="${esc(c.start || today())}">
+    <p class="muted" style="margin-top:8px">選んだ種類の標準工程が日付つきで一括追加されます。追加後に✎で日数・担当を調整してください。</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="tpl-cancel">キャンセル</button>
+      <button class="btn btn-primary" id="tpl-ok">作成する</button>
+    </div>`);
+  document.getElementById('tpl-cancel').onclick = closeModal;
+  document.getElementById('tpl-ok').onclick = () => {
+    const tpl = TASK_TEMPLATES[document.getElementById('tpl-select').value];
+    let cursor = document.getElementById('tpl-start').value || today();
+    const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+    for(const [name, days] of tpl){
+      const end = addDays(cursor, days - 1);
+      c.tasks.push({ id: uid(), name, start: cursor, end, progress: 0, assignee: '' });
+      cursor = addDays(end, 1);
+    }
+    if(!c.start) c.start = document.getElementById('tpl-start').value || today();
+    if(!c.end || c.end < cursor) c.end = addDays(cursor, -1);
+    c.updatedAt = new Date().toISOString();
+    saveDB(); closeModal(); renderGantt(c);
+    toast(`${tpl.length}件の工程を追加しました`);
+  };
+};
+/* ---- 全現場の工程管理（横断ビュー） ---- */
+document.getElementById('sched-btn').onclick = () => show('sched');
+function schedRow(c, t){
+  const st = taskState(t);
+  const cls = st === 'late' ? 'style="color:var(--red)"' : '';
+  return `<div class="g-row">
+    <div class="g-name" style="width:150px" ${cls}>${esc(t.name || '（無題）')}<div class="g-sub">📍${esc(c.title || '無題の案件')}</div></div>
+    <div style="flex:1;font-size:12px;color:var(--sub)">${jpShort(t.start)}〜${jpShort(t.end)}${t.assignee ? '・' + esc(t.assignee) : ''}<br><b style="color:var(--text)">${Number(t.progress||0)}%</b></div>
+    <button class="g-edit" data-cid="${c.id}" data-tid="${t.id}">✎</button>
+  </div>`;
+}
+function renderSched(){
+  const t = today();
+  const soon = (function(){ const d = new Date(t + 'T00:00:00'); d.setDate(d.getDate() + 7); return d.toISOString().slice(0,10); })();
+  const rows = { today: [], late: [], soon: [] };
+  for(const c of db.cases.filter(isActive)){
+    for(const k of c.tasks){
+      const prog = Number(k.progress || 0);
+      if(prog >= 100) continue;
+      if(k.end && k.end < t) rows.late.push([c, k]);
+      else if(k.start && k.start <= t && (!k.end || k.end >= t)) rows.today.push([c, k]);
+      else if(k.start && k.start > t && k.start <= soon) rows.soon.push([c, k]);
+    }
+  }
+  const fill = (id, list, empty) => {
+    document.getElementById(id).innerHTML = list.length
+      ? list.sort((a,b) => (a[1].start||'').localeCompare(b[1].start||'')).map(([c,k]) => schedRow(c,k)).join('')
+      : `<p class="muted">${empty}</p>`;
+  };
+  fill('sched-today', rows.today, '今日予定されている工程はありません。');
+  fill('sched-late', rows.late, '遅延はありません。');
+  fill('sched-soon', rows.soon, '直近7日以内に開始する工程はありません。');
+  document.querySelectorAll('#view-sched .g-edit').forEach(b => b.onclick = () => {
+    const c = getCase(b.dataset.cid);
+    const task = c && c.tasks.find(x => x.id === b.dataset.tid);
+    if(task) openTaskModal(c, task);
+  });
+}
 function openTaskModal(c, task){
   const t = task || { id:uid(), name:'', start:today(), end:today(), progress:0, assignee:'' };
   openModal(`<h3>${task ? '工程の編集' : '工程の追加'}</h3>
@@ -1261,10 +1426,17 @@ function openTaskModal(c, task){
     t.progress = Math.min(100, Math.max(0, Number(document.getElementById('t-prog').value) || 0));
     t.assignee = document.getElementById('t-assignee').value.trim();
     if(!task) c.tasks.push(t);
+    c.updatedAt = new Date().toISOString();
     saveDB(); closeModal(); renderGantt(c);
+    if(currentView === 'sched') renderSched();
   };
   const del = document.getElementById('t-del');
-  if(del) del.onclick = () => { c.tasks = c.tasks.filter(x => x.id !== t.id); saveDB(); closeModal(); renderGantt(c); };
+  if(del) del.onclick = () => {
+    c.tasks = c.tasks.filter(x => x.id !== t.id);
+    c.updatedAt = new Date().toISOString();
+    saveDB(); closeModal(); renderGantt(c);
+    if(currentView === 'sched') renderSched();
+  };
   const cancel = document.getElementById('t-cancel');
   if(cancel) cancel.onclick = closeModal;
 }
@@ -1635,6 +1807,106 @@ function buildNippoDoc(c, r){
   return docShell('工事日報', body);
 }
 
+/* ⑦ 発注書 */
+let currentOrderId = null;
+function orderCalc(o){
+  const sub = (o.lines || []).reduce((s,l) => s + (Number(l.qty)||0) * (Number(l.price)||0), 0);
+  const tax = Math.floor(sub * (Number(o.taxRate)||0) / 100);
+  return { sub, tax, total: sub + tax };
+}
+function currentOrder(c){
+  return c.orders.find(o => o.id === currentOrderId) || c.orders[c.orders.length - 1] || null;
+}
+function buildOrderDoc(c, o){
+  if(!o) return docShell('発注書', '<p>「＋新しい発注書」ボタンから作成してください。宛先・内容・金額を入れると、この場でA4の発注書になります。</p>');
+  const { sub, tax, total } = orderCalc(o);
+  let body = `<table>
+    <tr><th>宛先</th><td style="font-size:14px;font-weight:700">${esc(o.to || '')}　御中</td></tr>
+    <tr><th>発注日</th><td>${jpDate(o.date)}</td></tr>
+    <tr><th>件名</th><td>${esc(c.title || '')}</td></tr>
+    <tr><th>工事場所</th><td>${esc(c.address || '')}</td></tr>
+    ${c.start || c.end ? `<tr><th>工期</th><td>${jpDate(c.start)} 〜 ${jpDate(c.end)}</td></tr>` : ''}
+  </table>
+  <p style="font-size:14px">下記のとおり発注いたします。<br>
+  <b style="font-size:17px">発注金額：${fmtYen(total)}円（税込）</b></p>
+  <table class="est-table">
+    <tr><th>項目</th><th style="width:44px">数量</th><th style="width:44px">単位</th><th style="width:80px">単価(円)</th><th style="width:90px">金額(円)</th></tr>
+    ${(o.lines || []).map(l => `<tr>
+      <td>${esc(l.name)}</td><td class="num">${esc(l.qty)}</td><td class="num">${esc(l.unit)}</td>
+      <td class="num">${fmtYen(Number(l.price)||0)}</td><td class="num">${fmtYen((Number(l.qty)||0)*(Number(l.price)||0))}</td>
+    </tr>`).join('')}
+    <tr><td colspan="4" style="text-align:right">小計</td><td class="num">${fmtYen(sub)}</td></tr>
+    <tr><td colspan="4" style="text-align:right">消費税（${esc(o.taxRate)}%）</td><td class="num">${fmtYen(tax)}</td></tr>
+    <tr class="total-row"><td colspan="4" style="text-align:right">合計</td><td class="num">${fmtYen(total)}</td></tr>
+  </table>
+  ${o.pay ? `<table><tr><th>支払条件</th><td>${esc(o.pay)}</td></tr></table>` : ''}
+  ${o.note ? `<div class="foot-note">備考：${esc(o.note)}</div>` : ''}`;
+  return docShell('発注書', body);
+}
+function renderOrderEditor(c){
+  const sel = document.getElementById('order-select');
+  sel.innerHTML = c.orders.length
+    ? c.orders.map(o => `<option value="${o.id}">${esc(o.to || '宛先未定')}（${jpShort(o.date)}・${fmtYen(orderCalc(o).total)}円）</option>`).join('')
+    : '<option value="">（まだ発注書がありません）</option>';
+  const o = currentOrder(c);
+  if(o) sel.value = o.id;
+  sel.onchange = () => { currentOrderId = sel.value; renderOrderEditor(c); renderPreview(c); };
+  const form = document.getElementById('order-form');
+  form.style.display = o ? 'block' : 'none';
+  if(!o) return;
+  // 宛先候補（登録メンバー）
+  if(usersCache) document.getElementById('o-to-list').innerHTML = usersCache.map(u => `<option value="${esc(u.name)}">`).join('');
+  document.getElementById('o-to').value = o.to;
+  document.getElementById('o-date').value = o.date;
+  document.getElementById('o-pay').value = o.pay;
+  document.getElementById('o-note').value = o.note;
+  document.getElementById('o-to').oninput = e => { o.to = e.target.value; renderPreview(c); };
+  document.getElementById('o-date').oninput = e => { o.date = e.target.value; renderPreview(c); };
+  document.getElementById('o-pay').oninput = e => { o.pay = e.target.value; renderPreview(c); };
+  document.getElementById('o-note').oninput = e => { o.note = e.target.value; renderPreview(c); };
+  const tbody = document.getElementById('order-rows');
+  tbody.innerHTML = o.lines.map((l,idx) => `<tr>
+    <td><input data-f="name" data-idx="${idx}" value="${esc(l.name)}"></td>
+    <td><input data-f="qty" data-idx="${idx}" type="number" inputmode="numeric" value="${esc(l.qty)}"></td>
+    <td><input data-f="unit" data-idx="${idx}" value="${esc(l.unit)}"></td>
+    <td><input data-f="price" data-idx="${idx}" type="number" inputmode="numeric" value="${esc(l.price)}"></td>
+    <td><button class="rm" data-idx="${idx}">✕</button></td>
+  </tr>`).join('');
+  tbody.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+    o.lines[Number(inp.dataset.idx)][inp.dataset.f] = inp.value;
+    updateOrderSum(o); renderPreview(c);
+  });
+  tbody.querySelectorAll('.rm').forEach(b => b.onclick = () => {
+    o.lines.splice(Number(b.dataset.idx), 1);
+    c.updatedAt = new Date().toISOString(); saveDB();
+    renderOrderEditor(c); renderPreview(c);
+  });
+  updateOrderSum(o);
+  document.getElementById('order-add-row').onclick = () => {
+    o.lines.push({ name:'', qty:1, unit:'式', price:'' });
+    renderOrderEditor(c); renderPreview(c);
+  };
+  document.getElementById('order-del').onclick = () => {
+    if(!confirm(`「${o.to || '宛先未定'}」宛の発注書を削除しますか？`)) return;
+    c.orders = c.orders.filter(x => x.id !== o.id);
+    currentOrderId = null;
+    c.updatedAt = new Date().toISOString(); saveDB();
+    renderOrderEditor(c); renderPreview(c);
+    toast('発注書を削除しました');
+  };
+}
+function updateOrderSum(o){
+  const { sub, tax, total } = orderCalc(o);
+  document.getElementById('order-sum').innerHTML = `小計 ${fmtYen(sub)}円 ＋ 消費税 ${fmtYen(tax)}円 ＝ <b>${fmtYen(total)}円</b>`;
+}
+document.getElementById('order-new').onclick = () => {
+  const c = getCase(currentCaseId); if(!c) return;
+  const o = { id: uid(), to:'', date: today(), pay:'', note:'', taxRate:10, lines:[{ name:'', qty:1, unit:'式', price:'' }] };
+  c.orders.push(o); currentOrderId = o.id;
+  c.updatedAt = new Date().toISOString(); saveDB();
+  renderOrderEditor(c); renderPreview(c);
+};
+
 /* ================= 書類画面 ================= */
 function renderDocs(){
   const c = getCase(currentCaseId); if(!c){ show('home'); return; }
@@ -1643,12 +1915,14 @@ function renderDocs(){
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'none' : 'none';
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'block' : 'none';
   document.getElementById('nippo-picker').style.display = currentDoc === 'nippo' ? 'block' : 'none';
+  document.getElementById('order-editor').style.display = currentDoc === 'order' ? 'block' : 'none';
   document.getElementById('doc-preview-wrap').style.display = currentDoc === 'share' ? 'none' : 'block';
   document.getElementById('action-bar').style.display = currentDoc === 'share' ? 'none' : 'flex';
 
   if(currentDoc === 'estimate') renderEstimateEditor(c);
   if(currentDoc === 'share') renderShare(c);
   if(currentDoc === 'nippo') renderNippoPicker(c);
+  if(currentDoc === 'order') renderOrderEditor(c);
   renderPreview(c);
 }
 function pickedNippo(c){
@@ -1670,6 +1944,7 @@ function renderPreview(c){
   else if(currentDoc === 'estimate') prev.innerHTML = buildEstimate(c);
   else if(currentDoc === 'schedule') prev.innerHTML = buildScheduleDoc(c);
   else if(currentDoc === 'nippo') prev.innerHTML = buildNippoDoc(c, pickedNippo(c));
+  else if(currentDoc === 'order') prev.innerHTML = buildOrderDoc(c, currentOrder(c));
   else prev.innerHTML = '';
 }
 document.getElementById('doc-tabs').addEventListener('click', e => {
@@ -1943,7 +2218,13 @@ function mergeRemote(text){
   const byId = new Map(db.cases.map(c => [c.id, c]));
   for(const rc of remote.cases || []){
     const lc = byId.get(rc.id);
-    if(!lc || (rc.updatedAt || '') > (lc.updatedAt || '')) byId.set(rc.id, migrateCase(rc));
+    if(!lc){ byId.set(rc.id, migrateCase(rc)); continue; }
+    const win = (rc.updatedAt || '') > (lc.updatedAt || '') ? migrateCase(rc) : lc;
+    const lose = win === lc ? migrateCase(rc) : lc;
+    // 入場チェックは追記型ログなので勝敗に関わらず両方残す
+    const seen = new Set((win.checkins || []).map(k => k.id));
+    (lose.checkins || []).forEach(k => { if(!seen.has(k.id)) win.checkins.push(k); });
+    byId.set(rc.id, win);
   }
   const tombs = new Map((db.deleted || []).map(d => [d.id, d.at]));
   for(const d of remote.deleted || []) if(!tombs.has(d.id) || d.at > tombs.get(d.id)) tombs.set(d.id, d.at);
