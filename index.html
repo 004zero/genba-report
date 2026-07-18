@@ -701,7 +701,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.11（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.12（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1737,8 +1737,9 @@ function renderReportList(c){
         <td style="font-size:11px;color:var(--sub)">${breakdown || '—'}</td>
       </tr>`;
     }).join('');
-    sum.innerHTML = `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>
-      <div style="font-weight:700;color:var(--navy);margin:8px 0 2px;font-size:13px">📊 月別のべ人工</div>
+    const isMember = sync.user && sync.user.role !== 'admin';
+    sum.innerHTML = `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>${isMember ? '<span style="font-size:11px">（自社分）</span>' : ''}
+      <div style="font-weight:700;color:var(--navy);margin:8px 0 2px;font-size:13px">📊 月別のべ人工${isMember ? '（自社分のみ）' : '（全体・業者別）'}</div>
       <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr style="font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)"><th style="text-align:left;padding:3px">月</th><th style="text-align:right;padding:3px">稼働日</th><th style="text-align:right;padding:3px">のべ人工</th><th style="text-align:left;padding:3px">内訳</th></tr>
@@ -1751,7 +1752,7 @@ function renderReportList(c){
       <div class="rep-date"><b>${jpShort(r.date)}</b><span>(${youbi(r.date)}) ${esc(r.weather||'')}</span></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.content || '（作業内容未入力）')}</div>
-        <div class="muted" style="font-size:11.5px">人数 ${reportWorkers(r)}人${r.progress !== '' && r.progress != null ? '｜進捗' + r.progress + '%' : ''}｜写真${(r.photos||[]).length}枚${r.author ? '｜' + esc(r.author) : ''}</div>
+        <div class="muted" style="font-size:11.5px">人数 ${(sync.user && sync.user.role !== 'admin' && (r.by||'') !== sync.user.id) ? '—' : reportWorkers(r) + '人'}${r.progress !== '' && r.progress != null ? '｜進捗' + r.progress + '%' : ''}｜写真${(r.photos||[]).length}枚${r.author ? '｜' + esc(r.author) : ''}</div>
       </div>
       <span style="color:var(--line);font-size:20px">›</span>
     </div>`).join('');
@@ -1762,7 +1763,7 @@ document.getElementById('add-report-btn').onclick = () => {
   const c = getCase(currentCaseId);
   const exist = c.reports.find(r => r.date === today());
   if(exist && !confirm('今日の日報は既にあります。新しく別の日報を作りますか？')){ currentReportId = exist.id; show('report'); return; }
-  const r = { id:uid(), date:today(), weather:'晴れ', author:db.company.person||'', workers:[{company:'自社', count:1}],
+  const r = { id:uid(), date:today(), weather:'晴れ', author:myUname(), by:myUid(), workers:[{company:'自社', count:1}],
     content:'', tomorrow:'', nextType:'tomorrow', nextDate:'', safety:'', progress:'', photos:[] };
   c.reports.push(r); currentReportId = r.id; show('report');
 };
