@@ -1,5 +1,5 @@
 /* ゲンバレポ Service Worker — オフライン対応 */
-const CACHE = 'genbarepo-v2.9.0';
+const CACHE = 'genbarepo-v2.10.0';
 const ASSETS = [
   './',
   './index.html',
@@ -21,6 +21,26 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+/* ---- プッシュ通知 ---- */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.title || 'ゲンバレポ', {
+    body: d.body || '新しい連絡があります',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'genbarepo-msg',
+    data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return clients.openWindow((e.notification.data && e.notification.data.url) || './');
+  }));
 });
 
 /* ネットワーク優先（更新をすぐ反映）、オフライン時はキャッシュから */

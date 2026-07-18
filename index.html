@@ -670,6 +670,14 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       </details>
     </div>
     <div class="card">
+      <h2>プッシュ通知</h2>
+      <p class="muted">連絡板に新しいメッセージが届いたとき、この端末に通知します（送った本人には通知されません）。端末ごとにオンにしてください。</p>
+      <button class="btn btn-primary btn-block" id="push-on-btn">🔔 この端末で通知をオンにする</button>
+      <button class="btn btn-outline btn-block" id="push-off-btn" style="display:none">🔕 通知をオフにする</button>
+      <div class="muted" id="push-status" style="margin-top:8px"></div>
+      <p class="muted" style="margin-top:6px"><b>iPhone・iPad：</b>「ホーム画面に追加」したアイコンから開いた場合のみ通知を使えます（iOS 16.4以降）。Safariで直接開いている間はボタンが反応しません。</p>
+    </div>
+    <div class="card">
       <h2>スマホ・タブレットで使う</h2>
       <p class="muted">このアプリはホーム画面に追加すると、普通のアプリと同じように全画面・オフラインで使えます（インストール不要・無料）。</p>
       <button class="btn btn-primary btn-block" id="install-btn" style="display:none">📲 アプリとしてインストール</button>
@@ -690,7 +698,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.9（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板対応）<br>
+      <p class="muted">ゲンバレポ v2.10（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2356,6 +2364,7 @@ function renderSettings(){
   document.getElementById('sy-auto').checked = sync.auto;
   updateSyncFields();
   renderSyncStatus();
+  pushStatusRefresh();
   const co = db.company;
   document.getElementById('s-name').value = co.name;
   document.getElementById('s-person').value = co.person;
@@ -2816,6 +2825,78 @@ function handleJoinLink(){
   };
   return true;
 }
+
+/* ---- プッシュ通知（連絡板の新着） ---- */
+function urlB64ToU8(s){
+  const pad = '='.repeat((4 - s.length % 4) % 4);
+  const b = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b);
+  return Uint8Array.from([...raw].map(ch => ch.charCodeAt(0)));
+}
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol !== 'file:';
+}
+async function pushStatusRefresh(){
+  const st = document.getElementById('push-status');
+  const onBtn = document.getElementById('push-on-btn');
+  const offBtn = document.getElementById('push-off-btn');
+  if(!st) return;
+  if(!pushSupported()){
+    st.textContent = '⚠ この環境では通知を使えません（iPhoneはホーム画面に追加したアプリから開いてください）';
+    onBtn.style.display = 'none'; offBtn.style.display = 'none';
+    return;
+  }
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub && Notification.permission === 'granted'){
+      st.textContent = '✅ この端末は通知オンです';
+      onBtn.style.display = 'none'; offBtn.style.display = 'flex';
+    } else {
+      st.textContent = Notification.permission === 'denied'
+        ? '⚠ 通知がブロックされています。端末の設定（ブラウザの通知許可）を確認してください'
+        : 'この端末は通知オフです';
+      onBtn.style.display = 'flex'; offBtn.style.display = 'none';
+    }
+  }catch(e){ st.textContent = ''; }
+}
+document.getElementById('push-on-btn').onclick = async () => {
+  if(!(sync.method === 'xserver' && syncReady())){ toast('先にクラウド同期を設定してください'); return; }
+  if(!pushSupported()){ toast('この環境では通知を使えません'); return; }
+  try{
+    const vr = await fetch(sync.apiUrl + '?action=vapid', { headers:{ 'X-Api-Key': sync.apiKey } });
+    const vj = await vr.json();
+    if(!vj.enabled) throw new Error('サーバーが通知未対応です（genba-api.zipを再アップロード）');
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ toast('通知が許可されませんでした'); pushStatusRefresh(); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(vj.publicKey) });
+    const res = await fetch(sync.apiUrl + '?action=pushsub', {
+      method:'POST', headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON() })
+    });
+    if(!res.ok) throw new Error('登録エラー HTTP' + res.status);
+    toast('通知をオンにしました');
+  }catch(e){ toast('通知の設定に失敗：' + e.message); }
+  pushStatusRefresh();
+};
+document.getElementById('push-off-btn').onclick = async () => {
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){
+      if(syncReady()){
+        await fetch(sync.apiUrl + '?action=pushunsub', {
+          method:'POST', headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        }).catch(() => {});
+      }
+      await sub.unsubscribe();
+    }
+    toast('通知をオフにしました');
+  }catch(e){ toast('解除に失敗：' + e.message); }
+  pushStatusRefresh();
+};
 
 /* ================= PWA（ホーム画面アプリ化・オフライン対応） ================= */
 if('serviceWorker' in navigator && location.protocol !== 'file:'){
