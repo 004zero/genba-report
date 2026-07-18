@@ -341,6 +341,10 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         </div>
         <label>現場住所</label>
         <input id="c-address" placeholder="例：東京都〇〇区…">
+        <div id="c-map-wrap" style="display:none;margin-top:8px">
+          <iframe id="c-map" style="width:100%;height:220px;border:1px solid var(--line);border-radius:10px;background:#eef2f6" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <button class="btn btn-outline btn-sm btn-block" id="map-open-btn" style="margin-top:6px">🗺 地図アプリで開く（経路・ナビ）</button>
+        </div>
         <div class="row2">
           <div><label>調査日</label><input type="date" id="c-date"></div>
           <div><label>担当者</label><input id="c-surveyor" placeholder="例：佐藤"></div>
@@ -496,6 +500,10 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>作業内容</h2>
+      <div id="r-task-wrap" style="display:none">
+        <label>今日の工程（チェックすると作業内容に入り、進捗が工程表に反映されます）</label>
+        <div id="r-task-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px"></div>
+      </div>
       <label>本日の作業内容</label>
       <textarea id="r-content" placeholder="例：2F天井配線敷設、分電盤回路増設（3回路）"></textarea>
       <label>全体の進捗率（%・任意）</label>
@@ -718,7 +726,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.15（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.16（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -977,6 +985,7 @@ function renderCase(){
   document.getElementById('c-end').value = c.end;
   document.getElementById('c-status').value = c.status;
   document.getElementById('c-overview').value = c.overview;
+  renderCaseMap(c);
   renderCaseMembers(c);
   renderItemList(c);
   renderDrawings(c);
@@ -1093,6 +1102,23 @@ function renderCheckinList(c){
     return `<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${jpShort(d)}(${youbi(d)})</b>　🟢 ${names}　<span style="font-size:11px">計${byDate[d].length}人</span></div>`;
   }).join('');
 }
+/* ---- 現場住所の地図表示（Googleマップ埋め込み・キー不要） ---- */
+function renderCaseMap(c){
+  const wrap = document.getElementById('c-map-wrap');
+  const frame = document.getElementById('c-map');
+  const addr = (c.address || '').trim();
+  if(!addr){ wrap.style.display = 'none'; frame.removeAttribute('src'); return; }
+  wrap.style.display = 'block';
+  const src = 'https://maps.google.com/maps?q=' + encodeURIComponent(addr) + '&z=16&hl=ja&output=embed';
+  if(frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+  document.getElementById('map-open-btn').onclick = () => {
+    window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr), '_blank', 'noopener');
+  };
+}
+document.getElementById('c-address').addEventListener('change', () => {
+  const c = getCase(currentCaseId);
+  if(c && currentView === 'case'){ c.address = document.getElementById('c-address').value.trim(); renderCaseMap(c); }
+});
 function collectCaseForm(){
   const c = getCase(currentCaseId); if(!c || currentView !== 'case') return;
   c.title = document.getElementById('c-title').value.trim();
@@ -1836,8 +1862,68 @@ function renderReport(){
   document.getElementById('r-nextdate').value = r.nextDate || '';
   updateNextUI(nt);
   renderWorkerRows(r);
+  renderReportTasks(r);
   renderPhotoGrid(r.photos, 'r-photo-grid', 'r-photo-input', () => renderReport(), 20);
   updateReportShare();
+}
+/* ---- 工程⇔日報の連動：この日の工程をチェックリスト表示 ---- */
+function reportDayTasks(c, date){
+  return c.tasks.filter(t => {
+    if(t.hidden || !t.start) return false;
+    const end = t.end || t.start;
+    const active = t.start <= date && end >= date;                       /* 期間中 */
+    const late = end < date && Number(t.progress || 0) < 100;            /* 遅延して継続中 */
+    return active || late;
+  });
+}
+function renderReportTasks(r){
+  const c = getCase(currentCaseId);
+  const wrap = document.getElementById('r-task-wrap');
+  const list = document.getElementById('r-task-list');
+  const tasks = c ? reportDayTasks(c, r.date || today()) : [];
+  if(!tasks.length){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const saved = r.taskUpdates || [];
+  list.innerHTML = tasks.map(t => {
+    const su = saved.find(x => x.id === t.id);
+    const checked = !!su;
+    const prog = su ? su.progress : Number(t.progress || 0);
+    const late = (t.end || t.start) < (r.date || today()) && Number(t.progress || 0) < 100;
+    return `<div style="display:flex;align-items:center;gap:8px;background:#f7f9fb;border-radius:8px;padding:7px 10px">
+      <input type="checkbox" data-rt="${t.id}" ${checked ? 'checked' : ''} style="width:auto">
+      <div style="flex:1;font-size:13.5px;${late ? 'color:var(--red)' : ''}">${late ? '⚠ ' : ''}${esc(t.name || '（無題）')}<span class="muted" style="font-size:11px">${t.assignee ? '　' + esc(t.assignee) : ''}</span></div>
+      <input type="number" data-rtp="${t.id}" min="0" max="100" value="${prog}" ${checked ? '' : 'disabled'} inputmode="numeric" style="width:64px;padding:6px;text-align:right">
+      <span class="muted" style="font-size:12px">%</span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-rt]').forEach(cb => cb.onchange = () => {
+    const t = c.tasks.find(x => x.id === cb.dataset.rt);
+    const pin = list.querySelector(`[data-rtp="${cb.dataset.rt}"]`);
+    pin.disabled = !cb.checked;
+    const ta = document.getElementById('r-content');
+    const line = t.name || '';
+    const lines = ta.value.split('\n').filter(s => s.trim() !== '');
+    if(cb.checked){ if(line && !lines.includes(line)) lines.push(line); }
+    else { const i = lines.indexOf(line); if(i >= 0) lines.splice(i, 1); }
+    ta.value = lines.join('\n');
+    updateReportShare();
+  });
+  list.querySelectorAll('[data-rtp]').forEach(inp => inp.oninput = updateReportShare);
+}
+function collectReportTasks(r){
+  const c = getCase(currentCaseId);
+  const list = document.getElementById('r-task-list');
+  if(!c || !list || document.getElementById('r-task-wrap').style.display === 'none') return;
+  const updates = [];
+  list.querySelectorAll('[data-rt]:checked').forEach(cb => {
+    const t = c.tasks.find(x => x.id === cb.dataset.rt);
+    if(!t) return;
+    const pin = list.querySelector(`[data-rtp="${cb.dataset.rt}"]`);
+    const prog = Math.min(100, Math.max(0, Number(pin.value) || 0));
+    updates.push({ id: t.id, name: t.name, progress: prog });
+    t.progress = prog;  /* 工程表へ反映 */
+  });
+  r.taskUpdates = updates;
 }
 function renderWorkerRows(r){
   const tbody = document.getElementById('worker-rows');
@@ -1875,6 +1961,7 @@ function collectReportForm(){
   r.nextType = nx ? nx.value : 'tomorrow';
   r.nextDate = document.getElementById('r-nextdate').value;
   r.safety = document.getElementById('r-safety').value.trim();
+  collectReportTasks(r);
   const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
 }
 /* 次の予定の見出し・入力欄の切替と文言 */
@@ -1928,6 +2015,11 @@ function collectReportFormSoft(){
 }
 ['r-content','r-tomorrow','r-nextdate','r-safety','r-progress','r-weather','r-author','r-date'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateReportShare);
+});
+/* 日付を変えたら「今日の工程」リストも入れ替える */
+document.getElementById('r-date').addEventListener('change', () => {
+  const r = getReport();
+  if(r){ r.date = document.getElementById('r-date').value || r.date; renderReportTasks(r); }
 });
 document.getElementById('r-copy-btn').onclick = () => copyText(document.getElementById('r-share').textContent);
 document.getElementById('del-report-btn').onclick = () => {
