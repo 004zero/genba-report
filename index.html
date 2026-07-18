@@ -127,6 +127,30 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 .pin-list li{list-style:none;padding:4px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;align-items:baseline}
 .pin-no{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--red);color:#fff;border-radius:50%;font-size:11px;font-weight:800}
 
+/* 工程表（カレンダー式ガント） */
+.gt-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#fff;-webkit-overflow-scrolling:touch}
+.gt-monthrow{position:relative;height:20px;border-bottom:1px solid var(--line)}
+.gt-m{position:absolute;top:1px;font-size:11px;font-weight:800;color:var(--navy);white-space:nowrap;padding-left:3px;border-left:2px solid var(--navy)}
+.gt-row{display:flex;border-bottom:1px solid #eef1f5}
+.gt-name{position:sticky;left:0;z-index:5;background:#fff;width:118px;flex-shrink:0;padding:5px 8px;font-size:12px;font-weight:700;border-right:1.5px solid var(--line);line-height:1.3;cursor:pointer}
+.gt-name .g-sub{font-size:10px;color:var(--sub);font-weight:400}
+.gt-days{display:flex}
+.gt-d{width:28px;flex-shrink:0;text-align:center;font-size:11px;font-weight:700;color:var(--sub);padding:2px 0;border-left:1px solid #f0f3f6}
+.gt-d span{display:block;font-size:9px;font-weight:400}
+.gt-d.sat{color:#1e6bb8;background:#f2f7fc}
+.gt-d.sun{color:var(--red);background:#fdf3f3}
+.gt-d.today{background:var(--orange);color:#fff;border-radius:4px 4px 0 0}
+.gt-track{position:relative;height:34px;flex-shrink:0;background-image:repeating-linear-gradient(to right,#f0f3f6 0 1px,transparent 1px 28px)}
+.gt-bgday{position:absolute;top:0;bottom:0;width:28px;pointer-events:none}
+.gt-bgday.sat{background:#f2f7fc}
+.gt-bgday.sun{background:#fdf3f3}
+.gt-bgday.today{background:rgba(232,118,45,.12)}
+.gt-bar{position:absolute;top:6px;height:22px;border-radius:5px;background:#9db4cc;cursor:pointer;min-width:12px;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.gt-bar .g-fill{position:absolute;left:0;top:0;bottom:0;background:rgba(15,45,85,.4);border-radius:5px}
+.gt-bar.done{background:var(--green)}
+.gt-bar.late{background:var(--red)}
+.gt-bar.active{background:var(--orange)}
+
 /* 工程表（ガント） */
 .gantt{margin-top:10px}
 .g-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #eef1f5}
@@ -473,11 +497,17 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <button class="doc-tab" data-doc="schedule">工程表</button>
       <button class="doc-tab" data-doc="nippo">工事日報</button>
       <button class="doc-tab" data-doc="order">発注書</button>
+      <button class="doc-tab" data-doc="archive">📁 保管庫</button>
       <button class="doc-tab" data-doc="share">✉ 送付文</button>
     </div>
     <div id="nippo-picker" class="card" style="display:none">
       <label>印刷する日報の日付</label>
       <select id="nippo-select"></select>
+    </div>
+    <div id="archive-panel" class="card" style="display:none">
+      <h2>📁 保管した書類（この案件）</h2>
+      <p class="muted" style="margin-bottom:8px">各書類の画面で「💾保管」を押すと、その時点の書類がサーバーに保存され、ここからいつでも再表示・再印刷できます。</p>
+      <div id="archive-list"></div>
     </div>
     <div id="order-editor" class="card" style="display:none">
       <h2>発注書（下請けさんへの発注）</h2>
@@ -626,7 +656,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.6（試作版・PWA・マルチアカウント・工程管理・発注書・入場チェック対応）<br>
+      <p class="muted">ゲンバレポ v2.7（試作版・PWA・マルチアカウント・工程管理・発注書・書類保管庫対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -740,11 +770,12 @@ function show(view){
   if(view === 'case' || view === 'item' || view === 'report'){
     bar.style.display = 'flex';
     docsBtn.style.display = view === 'case' ? 'flex' : 'none';
+    docsBtn.textContent = '📄 書類を作成';
+    docsBtn.onclick = () => { collectCaseForm(); show('docs'); };
     saveBtn.textContent = '保存する';
     saveBtn.onclick = () => { collectAll(); if(saveDB()){ toast('保存しました'); if(currentView === 'case') renderCase(); } };
   } else if(view === 'docs'){
     bar.style.display = 'flex';
-    docsBtn.style.display = 'none';
     saveBtn.textContent = '🖨 印刷・PDF保存';
     saveBtn.onclick = printCurrentDoc;
   } else {
@@ -1295,33 +1326,63 @@ function taskState(t){
   if(t.start && t.start <= td && (!t.end || t.end >= td)) return 'active';
   return 'plan';
 }
-function renderGantt(c){
-  const wrap = document.getElementById('gantt-wrap');
-  if(!c.tasks.length){ wrap.innerHTML = `<p class="muted">工程を追加すると、簡易ガントチャートが表示されます。</p>`; return; }
-  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+const addDaysStr = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+function ganttRange(tasks){
   const starts = tasks.map(t => t.start).filter(Boolean);
   const ends = tasks.map(t => t.end || t.start).filter(Boolean);
-  const min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
-  const max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
-  const total = Math.max(dayDiff(min, max) + 1, 1);
+  let min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
+  let max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
   const td = today();
-  const todayPos = (td >= min && td <= max) ? (dayDiff(min, td) + 0.5) / total * 100 : null;
-  wrap.innerHTML = `<div class="g-range">${jpShort(min)} 〜 ${jpShort(max)}（${total}日間）</div>` +
-    tasks.map(t => {
-      const s = t.start || min, e = t.end || s;
-      const left = dayDiff(min, s) / total * 100;
-      const width = Math.max((dayDiff(s, e) + 1) / total * 100, 2);
-      const st = taskState(t);
-      return `<div class="g-row">
-        <div class="g-name">${esc(t.name || '（無題）')}<div class="g-sub">${jpShort(s)}〜${jpShort(e)} ${t.assignee ? '・' + esc(t.assignee) : ''} ・${Number(t.progress||0)}%</div></div>
-        <div class="g-track">
-          <div class="g-bar ${st}" style="left:${left}%;width:${width}%"><div class="g-fill" style="width:${Number(t.progress||0)}%"></div></div>
-          ${todayPos != null ? `<div class="g-today" style="left:${todayPos}%"></div>` : ''}
-        </div>
-        <button class="g-edit" data-id="${t.id}">✎</button>
-      </div>`;
-    }).join('');
-  wrap.querySelectorAll('.g-edit').forEach(b => b.onclick = () => openTaskModal(c, c.tasks.find(t => t.id === b.dataset.id)));
+  if(td < min) min = td;
+  if(td > max) max = td;
+  min = addDaysStr(min, -1);
+  max = addDaysStr(max, 2);
+  return { min, max, total: Math.max(dayDiff(min, max) + 1, 1) };
+}
+function renderGantt(c){
+  const wrap = document.getElementById('gantt-wrap');
+  if(!c.tasks.length){ wrap.innerHTML = `<p class="muted">工程を追加すると、日付つきの工程表（ガントチャート）が表示されます。下のテンプレートを使うと一気に作れます。</p>`; return; }
+  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const { min, total } = ganttRange(tasks);
+  const DW = 28, td = today();
+  const youbiChar = '日月火水木金土';
+  let monthRow = '', dayRow = '', bgDays = '';
+  for(let i = 0; i < total; i++){
+    const ds = addDaysStr(min, i);
+    const d = new Date(ds + 'T00:00:00');
+    const dow = d.getDay();
+    const cls = ds === td ? 'today' : dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
+    dayRow += `<div class="gt-d ${cls}">${d.getDate()}<span>${youbiChar[dow]}</span></div>`;
+    if(d.getDate() === 1 || i === 0) monthRow += `<div class="gt-m" style="left:${i * DW}px">${d.getFullYear()}年${d.getMonth() + 1}月</div>`;
+    if(cls) bgDays += `<div class="gt-bgday ${cls}" style="left:${i * DW}px"></div>`;
+  }
+  const trackW = total * DW;
+  const rows = tasks.map(t => {
+    const s = t.start || min, e = t.end || s;
+    const off = Math.max(dayDiff(min, s), 0) * DW;
+    const w = Math.max((dayDiff(s, e) + 1) * DW - 4, 12);
+    const st = taskState(t);
+    return `<div class="gt-row">
+      <div class="gt-name" data-id="${t.id}">${esc(t.name || '（無題）')}<div class="g-sub">${t.assignee ? esc(t.assignee) + '・' : ''}${Number(t.progress||0)}%</div></div>
+      <div class="gt-track" style="width:${trackW}px">${bgDays}
+        <div class="gt-bar ${st}" data-id="${t.id}" style="left:${off + 2}px;width:${w}px" title="${esc(t.name||'')}"><div class="g-fill" style="width:${Number(t.progress||0)}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML = `<div class="gt-scroll"><div class="gt" style="width:${118 + trackW}px">
+      <div class="gt-row gt-monthrow"><div class="gt-name" style="cursor:default"></div><div class="gt-track" style="width:${trackW}px;height:19px;background:none">${monthRow}</div></div>
+      <div class="gt-row"><div class="gt-name" style="cursor:default;font-size:11px;color:var(--sub)">作業／日付</div><div class="gt-days">${dayRow}</div></div>
+      ${rows}
+    </div></div>
+    <div class="muted" style="margin-top:6px;font-size:12px">バーまたは作業名をタップで編集。<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定</div>`;
+  wrap.querySelectorAll('.gt-bar, .gt-name[data-id]').forEach(el => el.onclick = () => {
+    const t = c.tasks.find(x => x.id === el.dataset.id);
+    if(t) openTaskModal(c, t);
+  });
+  // 今日が見える位置まで自動スクロール
+  const sc = wrap.querySelector('.gt-scroll');
+  const todayOff = dayDiff(min, td) * DW;
+  if(todayOff > sc.clientWidth - 200) sc.scrollLeft = todayOff - 140;
 }
 document.getElementById('add-task-btn').onclick = () => {
   const c = getCase(currentCaseId);
@@ -1758,22 +1819,44 @@ function buildScheduleDoc(c){
   const min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
   const max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
   const total = Math.max(dayDiff(min, max) + 1, 1);
+  const dayW = 100 / total;
+  const showDays = total <= 40;
+  const youbiChar = '日月火水木金土';
+  /* 上段：日付ヘッダー（期間が長い場合は週単位表示） */
+  let head = `<div style="position:relative;height:26px;margin-left:132px;border-bottom:1.5px solid #1a3a5c">`;
+  for(let i = 0; i < total; i++){
+    const ds = addDaysStr(min, i);
+    const d = new Date(ds + 'T00:00:00');
+    const dow = d.getDay();
+    if(d.getDate() === 1 || i === 0) head += `<div style="position:absolute;left:${i * dayW}%;top:0;font-size:8.5px;font-weight:800;color:#1a3a5c;border-left:1.5px solid #1a3a5c;padding-left:1px;white-space:nowrap">${d.getMonth() + 1}月</div>`;
+    if(showDays) head += `<div style="position:absolute;left:${i * dayW}%;width:${dayW}%;top:11px;text-align:center;font-size:7.5px;color:${dow === 0 ? '#d64541' : dow === 6 ? '#1e6bb8' : '#666'}">${d.getDate()}<br>${youbiChar[dow]}</div>`;
+    else if(d.getDay() === 1) head += `<div style="position:absolute;left:${i * dayW}%;top:13px;font-size:7.5px;color:#666;border-left:1px solid #ccc;padding-left:1px">${d.getMonth()+1}/${d.getDate()}</div>`;
+  }
+  head += `</div>`;
+  /* 土日・今日の縦帯 */
+  let bands = '';
+  for(let i = 0; i < total; i++){
+    const ds = addDaysStr(min, i);
+    const dow = new Date(ds + 'T00:00:00').getDay();
+    const bg = ds === today() ? 'rgba(232,118,45,.15)' : dow === 0 ? 'rgba(214,69,65,.07)' : dow === 6 ? 'rgba(30,107,184,.07)' : '';
+    if(bg) bands += `<div style="position:absolute;left:${i * dayW}%;width:${dayW}%;top:0;bottom:0;background:${bg}"></div>`;
+  }
   let body = `<table>
     <tr><th>件名</th><td>${esc(c.title||'')}</td></tr>
     <tr><th>工事場所</th><td>${esc(c.address||'')}</td></tr>
     <tr><th>工期</th><td>${c.start || c.end ? jpDate(c.start) + ' 〜 ' + jpDate(c.end) : jpDate(min) + ' 〜 ' + jpDate(max)}</td></tr>
   </table>
-  <div class="sec">工程（${jpShort(min)} 〜 ${jpShort(max)}・${total}日間）</div>`;
+  <div class="sec">工程（${jpShort(min)} 〜 ${jpShort(max)}・${total}日間）</div>` + head;
   body += tasks.map(t => {
     const s = t.start || min, e = t.end || s;
     const left = dayDiff(min, s) / total * 100;
     const width = Math.max((dayDiff(s, e) + 1) / total * 100, 2);
     const st = taskState(t);
     const color = st === 'done' ? '#2e9e5b' : st === 'late' ? '#d64541' : st === 'active' ? '#e8762d' : '#9db4cc';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #e5eaf0">
-      <div style="width:130px;flex-shrink:0;font-size:11px;font-weight:700;line-height:1.3">${esc(t.name||'')}<br><span style="font-weight:400;color:#666">${jpShort(s)}〜${jpShort(e)}${t.assignee ? '・' + esc(t.assignee) : ''}・${Number(t.progress||0)}%</span></div>
-      <div style="flex:1;position:relative;height:18px;background:#f2f5f8;border-radius:4px">
-        <div style="position:absolute;left:${left}%;width:${width}%;top:2px;bottom:2px;background:${color};border-radius:3px"></div>
+    return `<div style="display:flex;align-items:center;gap:2px;padding:4px 0;border-bottom:1px solid #e5eaf0">
+      <div style="width:130px;flex-shrink:0;font-size:10.5px;font-weight:700;line-height:1.3">${esc(t.name||'')}<br><span style="font-weight:400;color:#666;font-size:9px">${jpShort(s)}〜${jpShort(e)}${t.assignee ? '・' + esc(t.assignee) : ''}・${Number(t.progress||0)}%</span></div>
+      <div style="flex:1;position:relative;height:20px;background:#f7f9fb;border-radius:3px;background-image:repeating-linear-gradient(to right,#e8ecf1 0 1px,transparent 1px ${dayW}%)">${bands}
+        <div style="position:absolute;left:${left}%;width:${width}%;top:3px;bottom:3px;background:${color};border-radius:3px"></div>
       </div>
     </div>`;
   }).join('');
@@ -1916,14 +1999,81 @@ function renderDocs(){
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'block' : 'none';
   document.getElementById('nippo-picker').style.display = currentDoc === 'nippo' ? 'block' : 'none';
   document.getElementById('order-editor').style.display = currentDoc === 'order' ? 'block' : 'none';
+  document.getElementById('archive-panel').style.display = currentDoc === 'archive' ? 'block' : 'none';
   document.getElementById('doc-preview-wrap').style.display = currentDoc === 'share' ? 'none' : 'block';
   document.getElementById('action-bar').style.display = currentDoc === 'share' ? 'none' : 'flex';
+  const docsBtn = document.getElementById('bar-docs-btn');
+  docsBtn.style.display = (currentDoc === 'share' || currentDoc === 'archive') ? 'none' : 'flex';
+  docsBtn.textContent = '💾 保管';
+  docsBtn.onclick = archiveCurrentDoc;
 
   if(currentDoc === 'estimate') renderEstimateEditor(c);
   if(currentDoc === 'share') renderShare(c);
   if(currentDoc === 'nippo') renderNippoPicker(c);
   if(currentDoc === 'order') renderOrderEditor(c);
+  if(currentDoc === 'archive') renderArchive(c);
   renderPreview(c);
+}
+/* ---- 書類の保管庫（クラウド保存） ---- */
+const DOC_LABELS = { report:'現場調査報告書', proposal:'改善提案書', customer:'お客様向け報告', estimate:'御見積書', schedule:'工程表', nippo:'工事日報', order:'発注書' };
+async function archiveCurrentDoc(){
+  if(!(sync.method === 'xserver' && syncReady())){ toast('クラウド同期を設定すると書類を保管できます'); return; }
+  const c = getCase(currentCaseId); if(!c) return;
+  collectEstimateForm();
+  renderPreview(c);
+  const html = document.getElementById('doc-preview').innerHTML;
+  if(!html || html.length < 100){ toast('保管する書類がありません'); return; }
+  let title = `${DOC_LABELS[currentDoc] || '書類'}｜${c.title || '無題の案件'}`;
+  if(currentDoc === 'nippo'){ const r = pickedNippo(c); if(r) title += `（${jpShort(r.date)}）`; }
+  if(currentDoc === 'order'){ const o = currentOrder(c); if(o) title += `（${o.to || '宛先未定'}宛）`; }
+  toast('保管中…');
+  try{
+    const res = await fetch(sync.apiUrl + '?action=docsave', {
+      method:'POST', headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+      body: JSON.stringify({ caseId: c.id, type: currentDoc, title, html })
+    });
+    if(res.status === 404) throw new Error('サーバーのapi.php更新が必要です（genba-api.zipを再アップロード）');
+    if(res.status === 413) throw new Error('書類が大きすぎます（写真を減らしてください）');
+    if(!res.ok) throw new Error('HTTP' + res.status);
+    toast('保管しました（📁保管庫で見られます）');
+  }catch(e){ toast('保管に失敗：' + e.message); }
+}
+async function renderArchive(c){
+  const el = document.getElementById('archive-list');
+  if(!(sync.method === 'xserver' && syncReady())){
+    el.innerHTML = '<p class="muted">クラウド同期（Xサーバー方式）を設定すると使えます。</p>';
+    return;
+  }
+  el.innerHTML = '<p class="muted">読み込み中…</p>';
+  try{
+    const res = await fetch(sync.apiUrl + '?action=doclist&caseId=' + encodeURIComponent(c.id), { headers:{ 'X-Api-Key': sync.apiKey } });
+    if(res.status === 404) throw new Error('サーバーのapi.php更新が必要です（genba-api.zipを再アップロード→展開）');
+    if(!res.ok) throw new Error('HTTP' + res.status);
+    const docs = ((await res.json()).docs || []).sort((a,b) => (b.at||'').localeCompare(a.at||''));
+    el.innerHTML = docs.length ? docs.map(d => `
+      <div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0"><b style="font-size:13px">${esc(d.title || DOC_LABELS[d.type] || '書類')}</b>
+          <div class="muted" style="font-size:11px">${new Date(d.at).toLocaleString('ja-JP')}${d.by ? '　保存:' + esc(d.by) : ''}</div></div>
+        <button class="btn btn-navy btn-sm" data-view="${d.id}">表示</button>
+        <button class="btn btn-danger btn-sm" data-rm="${d.id}">削除</button>
+      </div>`).join('') : '<p class="muted">まだ保管した書類がありません。</p>';
+    el.querySelectorAll('[data-view]').forEach(b => b.onclick = async () => {
+      try{
+        const r2 = await fetch(sync.apiUrl + '?action=docget&id=' + b.dataset.view, { headers:{ 'X-Api-Key': sync.apiKey } });
+        if(!r2.ok) throw new Error('HTTP' + r2.status);
+        document.getElementById('doc-preview').innerHTML = (await r2.json()).html || '';
+        document.getElementById('doc-preview-wrap').scrollIntoView({ behavior:'smooth' });
+        toast('下に表示しました。🖨ボタンで印刷できます');
+      }catch(e){ toast('読み込みに失敗：' + e.message); }
+    });
+    el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+      if(!confirm('この保管書類を削除しますか？')) return;
+      try{
+        await fetch(sync.apiUrl + '?action=docdel', { method:'POST', headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' }, body: JSON.stringify({ id: b.dataset.rm }) });
+        renderArchive(c); toast('削除しました');
+      }catch(e){ toast('削除に失敗：' + e.message); }
+    });
+  }catch(e){ el.innerHTML = `<p class="muted">⚠ ${esc(e.message)}</p>`; }
 }
 function pickedNippo(c){
   return c.reports.find(r => r.id === currentNippoId) || latestReport(c);
@@ -1945,6 +2095,7 @@ function renderPreview(c){
   else if(currentDoc === 'schedule') prev.innerHTML = buildScheduleDoc(c);
   else if(currentDoc === 'nippo') prev.innerHTML = buildNippoDoc(c, pickedNippo(c));
   else if(currentDoc === 'order') prev.innerHTML = buildOrderDoc(c, currentOrder(c));
+  else if(currentDoc === 'archive') prev.innerHTML = `<div class="doc"><p style="color:#666">上の一覧で「表示」を押すと、保管した書類がここに表示されます。</p></div>`;
   else prev.innerHTML = '';
 }
 document.getElementById('doc-tabs').addEventListener('click', e => {
@@ -1956,7 +2107,7 @@ document.getElementById('doc-tabs').addEventListener('click', e => {
 function printCurrentDoc(){
   collectEstimateForm();
   const c = getCase(currentCaseId); if(!c) return;
-  renderPreview(c);
+  if(currentDoc !== 'archive') renderPreview(c);  // 保管庫は表示中の書類をそのまま印刷
   document.getElementById('print-area').innerHTML = document.getElementById('doc-preview').innerHTML;
   window.print();
 }
@@ -2467,9 +2618,20 @@ async function renderCaseMembers(c){
   if(!(sync.method === 'xserver' && syncReady())) return;
   if(sync.user && sync.user.role !== 'admin') return;
   if(usersCache === null){
-    try{ usersCache = (await xsUsersApi('users')).users || []; }catch(e){ usersCache = null; return; }
+    try{ usersCache = (await xsUsersApi('users')).users || []; }
+    catch(e){
+      usersCache = null;
+      document.getElementById('c-members-list').innerHTML = `<span class="muted">⚠ メンバー情報を取得できませんでした（${esc(e.message)}）。電波のある場所で開き直してください。</span>`;
+      wrap.style.display = 'block';
+      return;
+    }
   }
-  if(!usersCache.length || currentView !== 'case' || !getCase(currentCaseId) || getCase(currentCaseId).id !== c.id) return;
+  if(currentView !== 'case' || !getCase(currentCaseId) || getCase(currentCaseId).id !== c.id) return;
+  if(!usersCache.length){
+    document.getElementById('c-members-list').innerHTML = `<span class="muted">まだメンバーがいません。<b>⚙設定 → 👥ユーザー・招待</b> で下請けさんを追加すると、ここで「誰にこの案件を見せるか」を選べるようになります。</span>`;
+    wrap.style.display = 'block';
+    return;
+  }
   const restricted = Array.isArray(c.members);
   document.getElementById('c-members-list').innerHTML = `
     <label style="display:flex;gap:8px;align-items:center;margin:0;font-weight:400;color:var(--text)"><input type="checkbox" id="cm-all" ${restricted ? '' : 'checked'} style="width:auto"> 全員に公開（制限しない）</label>
