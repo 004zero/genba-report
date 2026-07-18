@@ -471,7 +471,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <textarea id="r-safety" rows="2" placeholder="例：KY実施。3F資材搬入は午前中のみ可。"></textarea>
     </div>
     <div class="card">
-      <h2>現場写真（最大6枚）</h2>
+      <h2>現場写真（最大20枚）</h2>
       <div class="photo-grid" id="r-photo-grid"></div>
       <input type="file" id="r-photo-input" accept="image/*" multiple style="display:none">
       <div class="muted" style="margin-top:8px">📝 「✎」ボタンで写真に書き込みできます。</div>
@@ -656,7 +656,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.7（試作版・PWA・マルチアカウント・工程管理・発注書・書類保管庫対応）<br>
+      <p class="muted">ゲンバレポ v2.8（試作版・PWA・マルチアカウント・工程管理・発注書・書類保管庫対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1055,7 +1055,7 @@ document.getElementById('del-item-btn').onclick = () => {
 };
 
 /* ================= 写真グリッド（共通・注釈対応） ================= */
-function renderPhotoGrid(photos, gridId, inputId, rerender){
+function renderPhotoGrid(photos, gridId, inputId, rerender, max = 6){
   const grid = document.getElementById(gridId);
   let html = photos.map((p,idx) => `
     <div class="photo-cell">
@@ -1066,7 +1066,7 @@ function renderPhotoGrid(photos, gridId, inputId, rerender){
         ${['現状','ビフォー','アフター','施工中','完了'].map(l => `<option ${p.label===l?'selected':''}>${l}</option>`).join('')}
       </select>
     </div>`).join('');
-  if(photos.length < 6) html += `<button class="photo-add" data-add="1"><b>＋</b>写真を追加</button>`;
+  if(photos.length < max) html += `<button class="photo-add" data-add="1"><b>＋</b>写真を追加<span style="font-size:10px">${photos.length}/${max}</span></button>`;
   grid.innerHTML = html;
   const addBtn = grid.querySelector('[data-add]');
   if(addBtn) addBtn.onclick = () => {
@@ -1097,10 +1097,10 @@ function renderPhotoGrid(photos, gridId, inputId, rerender){
     photos[Number(s.dataset.idx)].label = s.value; saveDB();
   });
 }
-async function handlePhotoInput(e, photos, rerender){
-  const files = [...e.target.files].slice(0, 6 - photos.length);
+async function handlePhotoInput(e, photos, rerender, max = 6, maxSide = 1100, quality = 0.72){
+  const files = [...e.target.files].slice(0, max - photos.length);
   for(const f of files){
-    try{ photos.push({ data: await compressImage(f), label:'現状' }); }
+    try{ photos.push({ data: await compressImage(f, maxSide, quality), label:'現状' }); }
     catch(err){ toast('写真の読み込みに失敗しました'); }
   }
   e.target.value = '';
@@ -1108,7 +1108,8 @@ async function handlePhotoInput(e, photos, rerender){
   rerender();
 }
 document.getElementById('photo-input').onchange = e => { const it = getItem(); if(it) handlePhotoInput(e, it.photos, () => renderItem()); };
-document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport()); };
+/* 日報写真は最大20枚。枚数が多いため書類品質を保てる範囲で強めに圧縮 */
+document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport(), 20, 900, 0.6); };
 
 function compressImage(file, maxSide = 1100, quality = 0.72){
   return new Promise((resolve, reject) => {
@@ -1394,7 +1395,20 @@ const TASK_TEMPLATES = {
   '電気工事': [['現場調査・準備',1],['材料手配',2],['配線工事',2],['器具付け',1],['検査・試験',1],['引渡し',1]],
   '内装リフォーム': [['養生・解体',2],['下地補修',2],['内装仕上げ',3],['美装クリーニング',1],['検査・引渡し',1]],
   '外壁塗装': [['足場設置',1],['高圧洗浄',1],['養生',1],['下塗り',1],['中塗り・上塗り',2],['検査',1],['足場解体・引渡し',1]],
-  '設備点検': [['事前準備・連絡',1],['点検実施',1],['報告書作成・提出',1]],
+  '屋根工事': [['足場設置',1],['既存屋根撤去',1],['下地・ルーフィング',1],['屋根材施工',2],['板金・雨樋',1],['検査・足場解体',1]],
+  '防水工事': [['高圧洗浄・下地処理',1],['プライマー塗布',1],['防水層施工',2],['トップコート',1],['検査・引渡し',1]],
+  '水道・給排水工事': [['現場調査・準備',1],['材料手配',1],['配管工事',2],['器具取付',1],['通水試験・検査',1],['引渡し',1]],
+  'キッチン交換': [['養生・既存撤去',1],['給排水・電気移設',1],['キッチン組立設置',1],['接続・コーキング',1],['試運転・引渡し',1]],
+  '浴室（ユニットバス）交換': [['養生・解体撤去',1],['配管・電気工事',1],['土間・下地',1],['ユニットバス組立',1],['内装補修',1],['検査・引渡し',1]],
+  'トイレ・洗面交換': [['養生・既存撤去',1],['給排水調整',1],['器具取付',1],['試運転・引渡し',1]],
+  'クロス・床張替え': [['養生・家具移動',1],['既存剥がし・下地処理',1],['クロス張り',2],['床仕上げ',1],['美装・引渡し',1]],
+  'エアコン工事': [['現場調査・準備',1],['既存機撤去',1],['配管・据付',1],['真空引き・試運転',1]],
+  '原状回復（退去後）': [['立会い・現況確認',1],['残置物撤去・解体',1],['内装補修・交換',3],['設備点検・補修',1],['ハウスクリーニング',1],['完了検査・報告',1]],
+  '解体工事': [['近隣挨拶・養生',1],['内装解体',2],['本体解体',3],['基礎撤去・整地',2],['廃材搬出・完了確認',1]],
+  '外構・エクステリア': [['準備・墨出し',1],['掘削・土工事',2],['基礎・下地',2],['仕上げ・製品設置',2],['清掃・引渡し',1]],
+  '太陽光設置': [['現場調査・準備',1],['足場・架台設置',1],['パネル設置',1],['電気配線・接続',1],['検査・連系試験',1]],
+  '消防設備点検': [['事前案内・準備',1],['機器点検',1],['総合点検',1],['報告書作成・提出',1]],
+  'ハウスクリーニング': [['養生・準備',1],['水回りクリーニング',1],['居室・窓・床',1],['最終確認・引渡し',1]],
 };
 document.getElementById('tpl-task-btn').onclick = () => {
   const c = getCase(currentCaseId); if(!c) return;
@@ -1508,11 +1522,41 @@ function renderReportList(c){
   const wrap = document.getElementById('report-list');
   const sum = document.getElementById('report-summary');
   const totalMen = c.reports.reduce((s,r) => s + reportWorkers(r), 0);
-  const ym = today().slice(0,7);
-  const monthMen = c.reports.filter(r => r.date.startsWith(ym)).reduce((s,r) => s + reportWorkers(r), 0);
-  sum.innerHTML = c.reports.length
-    ? `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>（今月 ${monthMen}人）`
-    : '日報を書くと、事務所からも作業状況・人数・写真を確認できます。';
+  if(!c.reports.length){
+    sum.innerHTML = '日報を書くと、事務所からも作業状況・人数・写真を確認できます。';
+  } else {
+    /* 月別集計：稼働日数・のべ人工・会社別内訳 */
+    const months = {};
+    for(const r of c.reports){
+      const ym = (r.date || '').slice(0, 7);
+      if(!ym) continue;
+      const m = months[ym] = months[ym] || { days: new Set(), men: 0, by: {} };
+      m.days.add(r.date);
+      for(const w of (r.workers || [])){
+        const n = Number(w.count) || 0;
+        if(!n) continue;
+        m.men += n;
+        const co = w.company || '（社名なし）';
+        m.by[co] = (m.by[co] || 0) + n;
+      }
+    }
+    const rows = Object.keys(months).sort().reverse().map(ym => {
+      const m = months[ym];
+      const breakdown = Object.entries(m.by).map(([co, n]) => `${esc(co)}${n}`).join('・');
+      return `<tr>
+        <td style="white-space:nowrap"><b>${Number(ym.slice(5,7))}月</b><span style="font-size:10px;color:var(--sub)">${ym.slice(0,4)}</span></td>
+        <td style="text-align:right">${m.days.size}日</td>
+        <td style="text-align:right"><b style="color:var(--navy)">${m.men}人</b></td>
+        <td style="font-size:11px;color:var(--sub)">${breakdown || '—'}</td>
+      </tr>`;
+    }).join('');
+    sum.innerHTML = `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>
+      <div style="overflow-x:auto;margin-top:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)"><th style="text-align:left;padding:3px">月</th><th style="text-align:right;padding:3px">稼働日</th><th style="text-align:right;padding:3px">のべ人工</th><th style="text-align:left;padding:3px">内訳</th></tr>
+        ${rows}
+      </table></div>`;
+  }
   const sorted = [...c.reports].sort((a,b) => b.date.localeCompare(a.date));
   wrap.innerHTML = sorted.map(r => `
     <div class="report-card" data-id="${r.id}">
@@ -1544,7 +1588,7 @@ function renderReport(){
   document.getElementById('r-tomorrow').value = r.tomorrow;
   document.getElementById('r-safety').value = r.safety;
   renderWorkerRows(r);
-  renderPhotoGrid(r.photos, 'r-photo-grid', 'r-photo-input', () => renderReport());
+  renderPhotoGrid(r.photos, 'r-photo-grid', 'r-photo-input', () => renderReport(), 20);
   updateReportShare();
 }
 function renderWorkerRows(r){
