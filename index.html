@@ -415,7 +415,8 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     <div class="ctab" id="ct-messages">
       <div class="card">
         <h2>現場連絡板</h2>
-        <p class="muted" style="margin-bottom:8px">この案件が見えるメンバー全員に届きます。「材料届きました」「明日9時に入ります」など気軽にどうぞ。</p>
+        <div class="doc-tabs" id="msg-ch-bar" style="margin-bottom:8px"></div>
+        <p class="muted" id="msg-ch-note" style="margin-bottom:8px"></p>
         <div id="msg-list"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn btn-outline" id="msg-photo-btn" style="flex-shrink:0;padding:12px 14px" title="写真を送る">📷</button>
@@ -728,7 +729,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.18（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.19（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -953,7 +954,7 @@ function renderHome(){
       <span class="badge st-${esc(c.status)}">${esc(c.status)}</span>
     </div>`;
   }).join('');
-  wrap.querySelectorAll('.case-card').forEach(el => el.onclick = () => { currentCaseId = el.dataset.id; currentCaseTab = 'info'; show('case'); });
+  wrap.querySelectorAll('.case-card').forEach(el => el.onclick = () => { currentCaseId = el.dataset.id; currentCaseTab = 'info'; currentMsgCh = ''; show('case'); });
 }
 document.getElementById('fab').onclick = () => {
   const c = migrateCase({ id:uid(), title:'', client:'', honor:'様', address:'', date:today(), surveyor:db.company.person||'', status:'調査中',
@@ -997,10 +998,37 @@ function renderCase(){
   renderCheckinList(c);
   renderMessages(c);
 }
-/* ---- 現場連絡板 ---- */
+/* ---- 現場連絡板（👥全体 ／ 🔒個別＝大元⇔各下請け1対1） ---- */
+let currentMsgCh = '';  /* '' = 全体、userId = その人との個別 */
+function renderMsgChannels(c){
+  const bar = document.getElementById('msg-ch-bar');
+  const note = document.getElementById('msg-ch-note');
+  const isMember = sync.user && sync.user.role !== 'admin';
+  let chips = [{ ch:'', label:'👥 全体' }];
+  if(isMember){
+    chips.push({ ch: sync.user.id, label:'🔒 元請けさんと個別' });
+  } else if(sync.method === 'xserver' && syncReady()){
+    if(usersCache === null){
+      xsUsersApi('users').then(j => { usersCache = j.users || []; if(currentView === 'case' && currentCaseTab === 'messages') renderMsgChannels(c); }).catch(() => {});
+    } else {
+      usersCache.filter(u => u.role !== 'admin').forEach(u => chips.push({ ch: u.id, label: '🔒 ' + u.name }));
+    }
+  }
+  if(!chips.some(x => x.ch === currentMsgCh)) currentMsgCh = '';
+  bar.innerHTML = chips.map(x => `<button class="doc-tab ${x.ch === currentMsgCh ? 'active' : ''}" data-ch="${x.ch}">${esc(x.label)}</button>`).join('');
+  bar.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
+    currentMsgCh = b.dataset.ch;
+    renderMsgChannels(c);
+    renderMessages(c);
+  });
+  note.textContent = currentMsgCh === ''
+    ? 'この案件が見える全員に届きます。「材料届きました」「明日9時に入ります」など気軽にどうぞ。'
+    : '🔒 この個別連絡は、相手と管理者だけに見えます。他の下請けさんには届きません。';
+}
 function renderMessages(c){
+  renderMsgChannels(c);
   const list = document.getElementById('msg-list');
-  const msgs = [...(c.messages || [])].sort((a,b) => (a.at || '').localeCompare(b.at || ''));
+  const msgs = [...(c.messages || [])].filter(m => (m.ch || '') === currentMsgCh).sort((a,b) => (a.at || '').localeCompare(b.at || ''));
   list.innerHTML = msgs.length ? msgs.map(m => {
     const mine = m.userId === myUid();
     const d = new Date(m.at);
@@ -1009,7 +1037,7 @@ function renderMessages(c){
       ? `<a href="${esc(m.photo.url)}" target="_blank" rel="noopener"><img src="${esc(m.photo.url)}" loading="lazy" style="max-width:210px;width:100%;border-radius:8px;display:block;margin:2px 0"></a>`
       : '';
     return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${photo}${m.text && m.text !== '📷 写真' ? esc(m.text) : (photo ? '' : esc(m.text))}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
-  }).join('') : '<p class="muted" style="padding:12px">まだメッセージがありません。</p>';
+  }).join('') : `<p class="muted" style="padding:12px">${currentMsgCh === '' ? 'まだメッセージがありません。' : 'まだ個別のやりとりはありません。'}</p>`;
   list.scrollTop = list.scrollHeight;
 }
 /* 写真つきメッセージ（サーバー保存が前提のためオンライン時のみ） */
@@ -1028,7 +1056,9 @@ document.getElementById('msg-photo-input').onchange = async e => {
     if(!url){ toast('送信できませんでした（電波を確認してください）'); return; }
     const text = document.getElementById('msg-input').value.trim() || '📷 写真';
     document.getElementById('msg-input').value = '';
-    c.messages.push({ id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text, photo: { url } });
+    const msg = { id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text, photo: { url } };
+    if(currentMsgCh) msg.ch = currentMsgCh;
+    c.messages.push(msg);
     c.updatedAt = new Date().toISOString();
     saveDB();
     renderMessages(c);
@@ -1054,7 +1084,9 @@ function sendMessage(){
   const inp = document.getElementById('msg-input');
   const text = inp.value.trim(); if(!text) return;
   const c = getCase(currentCaseId); if(!c) return;
-  c.messages.push({ id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text });
+  const msg = { id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text };
+  if(currentMsgCh) msg.ch = currentMsgCh;
+  c.messages.push(msg);
   c.updatedAt = new Date().toISOString();
   inp.value = '';
   saveDB();
