@@ -392,9 +392,14 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     <div class="ctab" id="ct-schedule">
       <div class="card">
         <h2>工程表</h2>
-        <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;font-weight:400;color:var(--text);margin:0 0 8px">
-          <input type="checkbox" id="hide-done-tasks" style="width:auto"> ✅ 完了した工程を隠す
-        </label>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin:0 0 8px">
+          <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;font-weight:400;color:var(--text);margin:0">
+            <input type="checkbox" id="hide-done-tasks" style="width:auto"> ✅ 完了した工程を隠す
+          </label>
+          <label id="show-hidden-label" style="display:none;gap:8px;align-items:center;font-size:13.5px;font-weight:400;color:var(--text);margin:0">
+            <input type="checkbox" id="show-hidden-tasks" style="width:auto"> 👁 手動で隠した工程も表示
+          </label>
+        </div>
         <div id="gantt-wrap"></div>
         <button class="btn btn-outline btn-block" id="add-task-btn">＋ 工程（作業）を追加</button>
         <button class="btn btn-navy btn-block" id="tpl-task-btn">⚡ テンプレートから工程表を一括作成</button>
@@ -713,7 +718,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.14（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.15（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1546,12 +1551,22 @@ function renderGantt(c){
   const wrap = document.getElementById('gantt-wrap');
   const hideCb = document.getElementById('hide-done-tasks');
   hideCb.checked = !!uiPrefs.hideDoneTasks;
-  if(!c.tasks.length){ wrap.innerHTML = `<p class="muted">工程を追加すると、日付つきの工程表（ガントチャート）が表示されます。下のテンプレートを使うと一気に作れます。</p>`; return; }
+  const showHiddenLabel = document.getElementById('show-hidden-label');
+  const showHiddenCb = document.getElementById('show-hidden-tasks');
+  showHiddenCb.checked = !!uiPrefs.showHiddenTasks;
+  if(!c.tasks.length){ showHiddenLabel.style.display = 'none'; wrap.innerHTML = `<p class="muted">工程を追加すると、日付つきの工程表（ガントチャート）が表示されます。下のテンプレートを使うと一気に作れます。</p>`; return; }
   const all = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
-  const hiddenCount = uiPrefs.hideDoneTasks ? all.filter(t => Number(t.progress||0) >= 100).length : 0;
-  const tasks = uiPrefs.hideDoneTasks ? all.filter(t => Number(t.progress||0) < 100) : all;
+  const manualCount = all.filter(t => t.hidden).length;
+  showHiddenLabel.style.display = manualCount ? 'flex' : 'none';
+  let tasks = all;
+  if(!uiPrefs.showHiddenTasks) tasks = tasks.filter(t => !t.hidden);
+  const doneHidden = uiPrefs.hideDoneTasks ? tasks.filter(t => Number(t.progress||0) >= 100).length : 0;
+  if(uiPrefs.hideDoneTasks) tasks = tasks.filter(t => Number(t.progress||0) < 100);
+  const hiddenNote = [];
+  if(doneHidden) hiddenNote.push(`✅完了${doneHidden}件`);
+  if(manualCount && !uiPrefs.showHiddenTasks) hiddenNote.push(`👁手動${manualCount}件`);
   if(!tasks.length){
-    wrap.innerHTML = `<p class="muted">🎉 すべての工程（${all.length}件）が完了しています。チェックを外すと表示されます。</p>`;
+    wrap.innerHTML = `<p class="muted">表示できる工程がありません（非表示：${hiddenNote.join('・') || 'なし'}）。上のチェックで表示を切り替えられます。</p>`;
     return;
   }
   const { min, total } = ganttRange(tasks);
@@ -1573,8 +1588,8 @@ function renderGantt(c){
     const off = Math.max(dayDiff(min, s), 0) * DW;
     const w = Math.max((dayDiff(s, e) + 1) * DW - 4, 12);
     const st = taskState(t);
-    return `<div class="gt-row">
-      <div class="gt-name" data-id="${t.id}">${esc(t.name || '（無題）')}<div class="g-sub">${t.assignee ? esc(t.assignee) + '・' : ''}${Number(t.progress||0)}%</div></div>
+    return `<div class="gt-row" ${t.hidden ? 'style="opacity:.45"' : ''}>
+      <div class="gt-name" data-id="${t.id}">${t.hidden ? '👁 ' : ''}${esc(t.name || '（無題）')}<div class="g-sub">${t.assignee ? esc(t.assignee) + '・' : ''}${Number(t.progress||0)}%</div></div>
       <div class="gt-track" style="width:${trackW}px">${bgDays}
         <div class="gt-bar ${st}" data-id="${t.id}" style="left:${off + 2}px;width:${w}px" title="${esc(t.name||'')}"><div class="g-fill" style="width:${Number(t.progress||0)}%"></div></div>
       </div>
@@ -1585,7 +1600,7 @@ function renderGantt(c){
       <div class="gt-row"><div class="gt-name" style="cursor:default;font-size:11px;color:var(--sub)">作業／日付</div><div class="gt-days">${dayRow}</div></div>
       ${rows}
     </div></div>
-    <div class="muted" style="margin-top:6px;font-size:12px">バーまたは作業名をタップで編集。<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定${hiddenCount ? `　<b style="color:var(--green)">✅完了${hiddenCount}件を非表示中</b>` : ''}</div>`;
+    <div class="muted" style="margin-top:6px;font-size:12px">バーまたは作業名をタップで編集。<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定${hiddenNote.length ? `　<b style="color:var(--navy)">非表示中：${hiddenNote.join('・')}</b>` : ''}</div>`;
   wrap.querySelectorAll('.gt-bar, .gt-name[data-id]').forEach(el => el.onclick = () => {
     const t = c.tasks.find(x => x.id === el.dataset.id);
     if(t) openTaskModal(c, t);
@@ -1601,6 +1616,12 @@ document.getElementById('add-task-btn').onclick = () => {
 };
 document.getElementById('hide-done-tasks').onchange = e => {
   uiPrefs.hideDoneTasks = e.target.checked;
+  saveUiPrefs();
+  const c = getCase(currentCaseId);
+  if(c) renderGantt(c);
+};
+document.getElementById('show-hidden-tasks').onchange = e => {
+  uiPrefs.showHiddenTasks = e.target.checked;
   saveUiPrefs();
   const c = getCase(currentCaseId);
   if(c) renderGantt(c);
@@ -1672,6 +1693,7 @@ function renderSched(){
   const rows = { today: [], late: [], soon: [] };
   for(const c of db.cases.filter(isActive)){
     for(const k of c.tasks){
+      if(k.hidden) continue;
       const prog = Number(k.progress || 0);
       if(prog >= 100) continue;
       if(k.end && k.end < t) rows.late.push([c, k]);
@@ -1705,6 +1727,9 @@ function openTaskModal(c, task){
       <div><label>進捗（%）</label><input type="number" id="t-prog" min="0" max="100" inputmode="numeric" value="${esc(t.progress)}"></div>
       <div><label>担当</label><input id="t-assignee" value="${esc(t.assignee)}" placeholder="例：佐藤班"></div>
     </div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin-top:14px">
+      <input type="checkbox" id="t-hidden" ${t.hidden ? 'checked' : ''} style="width:auto"> 👁 この工程を工程表で隠す
+    </label>
     <div class="modal-actions">
       ${task ? '<button class="btn btn-danger btn-sm" id="t-del">削除</button>' : '<button class="btn btn-outline" id="t-cancel">キャンセル</button>'}
       <button class="btn btn-primary" id="t-ok">保存</button>
@@ -1716,6 +1741,7 @@ function openTaskModal(c, task){
     if(t.end && t.start && t.end < t.start) t.end = t.start;
     t.progress = Math.min(100, Math.max(0, Number(document.getElementById('t-prog').value) || 0));
     t.assignee = document.getElementById('t-assignee').value.trim();
+    t.hidden = document.getElementById('t-hidden').checked;
     if(!task) c.tasks.push(t);
     c.updatedAt = new Date().toISOString();
     saveDB(); closeModal(); renderGantt(c);
@@ -2102,7 +2128,9 @@ function buildEstimate(c){
 /* ⑤ 工程表（A4） */
 function buildScheduleDoc(c){
   if(!c.tasks.length) return docShell('工程表', '<p>工程が登録されていません。「工程」タブで作業を追加してください。</p>');
-  const tasks = [...c.tasks].sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  /* 手動で隠した工程は印刷にも載せない（完了工程は正式記録として常に載せる） */
+  const tasks = c.tasks.filter(t => !t.hidden).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  if(!tasks.length) return docShell('工程表', '<p>すべての工程が非表示に設定されています。「工程」タブで表示に戻してください。</p>');
   const starts = tasks.map(t => t.start).filter(Boolean);
   const ends = tasks.map(t => t.end || t.start).filter(Boolean);
   const min = starts.length ? starts.reduce((a,b) => a < b ? a : b) : today();
