@@ -277,7 +277,6 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   #print-area{display:block !important}
   #print-area .doc{box-shadow:none;max-width:none;width:100%;padding:0;margin:0;page-break-after:always;font-size:12px}
   #print-area .doc:last-child{page-break-after:auto}
-  @page{size:A4;margin:16mm 14mm}
 }
 @media (min-width:640px){
   .photo-grid{grid-template-columns:repeat(4,1fr)}
@@ -291,6 +290,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   .g-name{width:150px}
 }
 </style>
+<style id="print-page-style">@page{size:A4 portrait;margin:16mm 14mm}</style>
 </head>
 <body>
 
@@ -544,6 +544,15 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <label>印刷する日報の日付</label>
       <select id="nippo-select"></select>
     </div>
+    <div id="sched-paper-card" class="card" style="display:none">
+      <label>工程表の用紙サイズ（印刷時に自動設定されます）</label>
+      <select id="sched-paper">
+        <option value="a4p">A4 縦（標準）</option>
+        <option value="a4l">A4 横</option>
+        <option value="a3l">A3 横（長期工事におすすめ）</option>
+        <option value="a3p">A3 縦</option>
+      </select>
+    </div>
     <div id="archive-panel" class="card" style="display:none">
       <h2>📁 保管した書類（この案件）</h2>
       <p class="muted" style="margin-bottom:8px">各書類の画面で「💾保管」を押すと、その時点の書類がサーバーに保存され、ここからいつでも再表示・再印刷できます。</p>
@@ -704,7 +713,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.13（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.14（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2100,7 +2109,9 @@ function buildScheduleDoc(c){
   const max = ends.length ? ends.reduce((a,b) => a > b ? a : b) : today();
   const total = Math.max(dayDiff(min, max) + 1, 1);
   const dayW = 100 / total;
-  const showDays = total <= 40;
+  /* 用紙サイズが大きいほど、日付を1日ずつ表示できる日数を拡大 */
+  const paperDays = { a4p: 40, a4l: 60, a3p: 60, a3l: 90 };
+  const showDays = total <= (paperDays[uiPrefs.schedulePaper || 'a4p'] || 40);
   const youbiChar = '日月火水木金土';
   /* 上段：日付ヘッダー（期間が長い場合は週単位表示） */
   let head = `<div style="position:relative;height:26px;margin-left:132px;border-bottom:1.5px solid #1a3a5c">`;
@@ -2278,6 +2289,8 @@ function renderDocs(){
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'none' : 'none';
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'block' : 'none';
   document.getElementById('nippo-picker').style.display = currentDoc === 'nippo' ? 'block' : 'none';
+  document.getElementById('sched-paper-card').style.display = currentDoc === 'schedule' ? 'block' : 'none';
+  if(currentDoc === 'schedule') document.getElementById('sched-paper').value = uiPrefs.schedulePaper || 'a4p';
   document.getElementById('order-editor').style.display = currentDoc === 'order' ? 'block' : 'none';
   document.getElementById('archive-panel').style.display = currentDoc === 'archive' ? 'block' : 'none';
   document.getElementById('doc-preview-wrap').style.display = currentDoc === 'share' ? 'none' : 'block';
@@ -2384,10 +2397,25 @@ document.getElementById('doc-tabs').addEventListener('click', e => {
   currentDoc = t.dataset.doc;
   renderDocs();
 });
+const PAPER_CSS = {
+  a4p: '@page{size:A4 portrait;margin:16mm 14mm}',
+  a4l: '@page{size:A4 landscape;margin:12mm 14mm}',
+  a3p: '@page{size:A3 portrait;margin:16mm 14mm}',
+  a3l: '@page{size:A3 landscape;margin:12mm 14mm}',
+};
+document.getElementById('sched-paper').onchange = e => {
+  uiPrefs.schedulePaper = e.target.value;
+  saveUiPrefs();
+  const c = getCase(currentCaseId);
+  if(c) renderPreview(c);
+};
 function printCurrentDoc(){
   collectEstimateForm();
   const c = getCase(currentCaseId); if(!c) return;
   if(currentDoc !== 'archive') renderPreview(c);  // 保管庫は表示中の書類をそのまま印刷
+  // 工程表は選択した用紙、その他の書類はA4縦
+  const paper = currentDoc === 'schedule' ? (uiPrefs.schedulePaper || 'a4p') : 'a4p';
+  document.getElementById('print-page-style').textContent = PAPER_CSS[paper] || PAPER_CSS.a4p;
   document.getElementById('print-area').innerHTML = document.getElementById('doc-preview').innerHTML;
   window.print();
 }
