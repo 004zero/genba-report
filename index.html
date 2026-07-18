@@ -227,6 +227,15 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 /* 送付文 */
 .share-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-size:13.5px;margin:8px 0}
 
+/* 現場連絡板 */
+#msg-list{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto;padding:4px 2px;background:#f7f9fb;border-radius:10px;min-height:120px}
+.msg{max-width:84%;padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word;margin:0 6px}
+.msg.me{align-self:flex-end;background:var(--orange-l);border:1px solid #f0c9a5;border-bottom-right-radius:4px}
+.msg.other{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg .meta{font-size:10px;color:var(--sub)}
+.seg span.v-n{font-size:12.5px}
+.seg input:checked + span.v-n{background:var(--blue-l);border-color:var(--navy);color:var(--navy)}
+
 /* 固定フッター */
 #action-bar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:none;gap:10px;backdrop-filter:blur(8px)}
 #action-bar .btn{flex:1}
@@ -317,6 +326,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <button class="subtab" data-tab="drawings">図面</button>
       <button class="subtab" data-tab="schedule">工程</button>
       <button class="subtab" data-tab="reports">日報</button>
+      <button class="subtab" data-tab="messages">連絡</button>
     </div>
 
     <!-- 基本情報 -->
@@ -386,6 +396,20 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <button class="btn btn-outline btn-block" id="add-task-btn">＋ 工程（作業）を追加</button>
         <button class="btn btn-navy btn-block" id="tpl-task-btn">⚡ テンプレートから工程表を一括作成</button>
         <div class="muted" style="margin-top:8px">バーの色：<span style="color:var(--orange)">■進行中</span> <span style="color:var(--green)">■完了</span> <span style="color:var(--red)">■遅延</span> ■予定　／　「書類」からA4の工程表を印刷できます。</div>
+      </div>
+    </div>
+
+    <!-- 現場連絡板 -->
+    <div class="ctab" id="ct-messages">
+      <div class="card">
+        <h2>現場連絡板</h2>
+        <p class="muted" style="margin-bottom:8px">この案件が見えるメンバー全員に届きます。「材料届きました」「明日9時に入ります」など気軽にどうぞ。</p>
+        <div id="msg-list"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input id="msg-input" placeholder="メッセージを入力" autocomplete="off">
+          <button class="btn btn-primary" id="msg-send" style="flex-shrink:0">送信</button>
+        </div>
+        <button class="btn btn-outline btn-sm btn-block" id="msg-refresh" style="margin-top:8px">🔄 新着を確認</button>
       </div>
     </div>
 
@@ -465,7 +489,17 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <textarea id="r-content" placeholder="例：2F天井配線敷設、分電盤回路増設（3回路）"></textarea>
       <label>全体の進捗率（%・任意）</label>
       <input type="number" id="r-progress" min="0" max="100" inputmode="numeric" placeholder="例：60">
-      <label>明日の予定</label>
+      <label>次の予定</label>
+      <div class="seg">
+        <label><input type="radio" name="r-next" value="tomorrow" checked><span class="v-n">明日の予定</span></label>
+        <label><input type="radio" name="r-next" value="next"><span class="v-n">次回の予定</span></label>
+        <label><input type="radio" name="r-next" value="tbd"><span class="v-n">未定</span></label>
+      </div>
+      <div id="r-nextdate-wrap" style="display:none">
+        <label>次回の予定日</label>
+        <input type="date" id="r-nextdate">
+      </div>
+      <label id="r-tomorrow-label">予定の内容</label>
       <textarea id="r-tomorrow" rows="2" placeholder="例：器具付け、照明取付"></textarea>
       <label>安全事項・連絡事項・特記</label>
       <textarea id="r-safety" rows="2" placeholder="例：KY実施。3F資材搬入は午前中のみ可。"></textarea>
@@ -656,7 +690,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.8（試作版・PWA・マルチアカウント・工程管理・発注書・書類保管庫対応）<br>
+      <p class="muted">ゲンバレポ v2.9（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -709,6 +743,7 @@ function migrateCase(c){
   c.reports = c.reports || [];
   c.orders = c.orders || [];
   c.checkins = c.checkins || [];
+  c.messages = c.messages || [];
   c.start = c.start || '';
   c.end = c.end || '';
   return c;
@@ -857,6 +892,8 @@ function renderHome(){
     let sub = '';
     const inToday = c.checkins.filter(k => k.date === t).length;
     if(inToday) sub += `🟢入場${inToday}人｜`;
+    const msgToday = (c.messages || []).filter(m => (m.at || '').slice(0,10) === t).length;
+    if(msgToday) sub += `💬${msgToday}｜`;
     if(lr){
       const age = dayDiff(lr.date, t);
       sub += age <= 0 ? `日報:本日済` : (age >= 3 && isActive(c) ? `<span class="alert-txt">日報:${age}日前</span>` : `日報:${jpShort(lr.date)}`);
@@ -888,6 +925,7 @@ document.getElementById('case-subtabs').addEventListener('click', e => {
   collectCaseForm();
   currentCaseTab = b.dataset.tab;
   renderCase();
+  if(currentCaseTab === 'messages') refreshMessages(true);  // 連絡板を開いたら新着を取得
 });
 function renderCase(){
   const c = getCase(currentCaseId); if(!c){ show('home'); return; }
@@ -913,7 +951,41 @@ function renderCase(){
   renderReportList(c);
   renderCheckinBtn(c);
   renderCheckinList(c);
+  renderMessages(c);
 }
+/* ---- 現場連絡板 ---- */
+function renderMessages(c){
+  const list = document.getElementById('msg-list');
+  const msgs = [...(c.messages || [])].sort((a,b) => (a.at || '').localeCompare(b.at || ''));
+  list.innerHTML = msgs.length ? msgs.map(m => {
+    const mine = m.userId === myUid();
+    const d = new Date(m.at);
+    const time = isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${esc(m.text)}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
+  }).join('') : '<p class="muted" style="padding:12px">まだメッセージがありません。</p>';
+  list.scrollTop = list.scrollHeight;
+}
+function refreshMessages(silent){
+  if(!syncReady()) { if(!silent) toast('クラウド同期の設定後に使えます'); return; }
+  syncNow(true).then(() => {
+    const c = getCase(currentCaseId);
+    if(c && currentView === 'case' && currentCaseTab === 'messages') renderMessages(c);
+  });
+}
+function sendMessage(){
+  const inp = document.getElementById('msg-input');
+  const text = inp.value.trim(); if(!text) return;
+  const c = getCase(currentCaseId); if(!c) return;
+  c.messages.push({ id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text });
+  c.updatedAt = new Date().toISOString();
+  inp.value = '';
+  saveDB();
+  renderMessages(c);
+  if(syncReady()) refreshMessages(true);
+}
+document.getElementById('msg-send').onclick = sendMessage;
+document.getElementById('msg-input').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); sendMessage(); } });
+document.getElementById('msg-refresh').onclick = () => { toast('新着を確認中…'); refreshMessages(false); };
 /* ---- 入場チェック（ワンタップ） ---- */
 function myUid(){ return (sync.user && sync.user.id) || 'local'; }
 function myUname(){ return (sync.user && sync.user.name) || db.company.person || '担当者'; }
@@ -1575,7 +1647,7 @@ document.getElementById('add-report-btn').onclick = () => {
   const exist = c.reports.find(r => r.date === today());
   if(exist && !confirm('今日の日報は既にあります。新しく別の日報を作りますか？')){ currentReportId = exist.id; show('report'); return; }
   const r = { id:uid(), date:today(), weather:'晴れ', author:db.company.person||'', workers:[{company:'自社', count:1}],
-    content:'', tomorrow:'', safety:'', progress:'', photos:[] };
+    content:'', tomorrow:'', nextType:'tomorrow', nextDate:'', safety:'', progress:'', photos:[] };
   c.reports.push(r); currentReportId = r.id; show('report');
 };
 function renderReport(){
@@ -1587,6 +1659,10 @@ function renderReport(){
   document.getElementById('r-progress').value = r.progress;
   document.getElementById('r-tomorrow').value = r.tomorrow;
   document.getElementById('r-safety').value = r.safety;
+  const nt = r.nextType || 'tomorrow';
+  document.querySelectorAll('input[name="r-next"]').forEach(x => x.checked = (x.value === nt));
+  document.getElementById('r-nextdate').value = r.nextDate || '';
+  updateNextUI(nt);
   renderWorkerRows(r);
   renderPhotoGrid(r.photos, 'r-photo-grid', 'r-photo-input', () => renderReport(), 20);
   updateReportShare();
@@ -1623,11 +1699,31 @@ function collectReportForm(){
   r.content = document.getElementById('r-content').value.trim();
   r.progress = document.getElementById('r-progress').value;
   r.tomorrow = document.getElementById('r-tomorrow').value.trim();
+  const nx = document.querySelector('input[name="r-next"]:checked');
+  r.nextType = nx ? nx.value : 'tomorrow';
+  r.nextDate = document.getElementById('r-nextdate').value;
   r.safety = document.getElementById('r-safety').value.trim();
   const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
 }
+/* 次の予定の見出し・入力欄の切替と文言 */
+function updateNextUI(nt){
+  document.getElementById('r-nextdate-wrap').style.display = nt === 'next' ? 'block' : 'none';
+  const lbl = document.getElementById('r-tomorrow-label');
+  const ta = document.getElementById('r-tomorrow');
+  if(nt === 'tbd'){ lbl.textContent = 'メモ（未定の理由など・任意)'; ta.placeholder = '例：他業者さんの工事完了待ち。決まり次第連絡します。'; }
+  else if(nt === 'next'){ lbl.textContent = '次回の予定の内容'; ta.placeholder = '例：器具付け、照明取付'; }
+  else { lbl.textContent = '明日の予定の内容'; ta.placeholder = '例：器具付け、照明取付'; }
+}
+function nextPlanText(r){
+  const nt = r.nextType || 'tomorrow';
+  if(nt === 'tbd') return { head:'次回の予定：未定', body: r.tomorrow || '（他工事の進み具合により決まり次第ご連絡します）' };
+  if(nt === 'next') return { head:`次回の予定${r.nextDate ? `：${jpDate(r.nextDate)}（${youbi(r.nextDate)}）` : ''}`, body: r.tomorrow || '—' };
+  return { head:'明日の予定', body: r.tomorrow || '—' };
+}
+document.querySelectorAll('input[name="r-next"]').forEach(x => x.onchange = () => { updateNextUI(x.value); updateReportShare(); });
 function nippoShareText(c, r){
   const men = (r.workers||[]).filter(w => w.company || w.count).map(w => `${w.company||'—'}${w.count||0}名`).join('・');
+  const np = nextPlanText(r);
   return `【工事日報】${jpDate(r.date)}（${youbi(r.date)}）${r.weather||''}
 現場：${c.title || '—'}
 作業人数：${men || '—'}（計${reportWorkers(r)}名）${r.progress !== '' && r.progress != null ? `\n全体進捗：${r.progress}%` : ''}
@@ -1635,8 +1731,8 @@ function nippoShareText(c, r){
 ■本日の作業
 ${r.content || '—'}
 
-■明日の予定
-${r.tomorrow || '—'}${r.safety ? `\n\n■安全・連絡事項\n${r.safety}` : ''}
+■${np.head}
+${np.body}${r.safety ? `\n\n■安全・連絡事項\n${r.safety}` : ''}
 
 記入者：${r.author || '—'}`;
 }
@@ -1650,12 +1746,15 @@ function collectReportFormSoft(){
   const r = getReport(); if(!r || currentView !== 'report') return;
   r.content = document.getElementById('r-content').value.trim();
   r.tomorrow = document.getElementById('r-tomorrow').value.trim();
+  const nx = document.querySelector('input[name="r-next"]:checked');
+  r.nextType = nx ? nx.value : 'tomorrow';
+  r.nextDate = document.getElementById('r-nextdate').value;
   r.safety = document.getElementById('r-safety').value.trim();
   r.progress = document.getElementById('r-progress').value;
   r.weather = document.getElementById('r-weather').value;
   r.author = document.getElementById('r-author').value.trim();
 }
-['r-content','r-tomorrow','r-safety','r-progress','r-weather','r-author','r-date'].forEach(id => {
+['r-content','r-tomorrow','r-nextdate','r-safety','r-progress','r-weather','r-author','r-date'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateReportShare);
 });
 document.getElementById('r-copy-btn').onclick = () => copyText(document.getElementById('r-share').textContent);
@@ -1927,8 +2026,8 @@ function buildNippoDoc(c, r){
   <div class="sec">本日の作業内容</div>
   <p>${esc(r.content||'—').replace(/\n/g,'<br>')}</p>
   ${r.progress !== '' && r.progress != null ? `<p><b>全体進捗率：${esc(r.progress)}%</b></p>` : ''}
-  <div class="sec">明日の予定</div>
-  <p>${esc(r.tomorrow||'—').replace(/\n/g,'<br>')}</p>
+  <div class="sec">${esc(nextPlanText(r).head)}</div>
+  <p>${esc(nextPlanText(r).body).replace(/\n/g,'<br>')}</p>
   ${r.safety ? `<div class="sec">安全事項・連絡事項</div><p>${esc(r.safety).replace(/\n/g,'<br>')}</p>` : ''}
   ${(r.photos||[]).length ? `<div class="sec">現場写真</div>` + photosHtml(r.photos) : ''}`;
   return docShell('工事日報', body);
@@ -2416,9 +2515,11 @@ function mergeRemote(text){
     if(!lc){ byId.set(rc.id, migrateCase(rc)); continue; }
     const win = (rc.updatedAt || '') > (lc.updatedAt || '') ? migrateCase(rc) : lc;
     const lose = win === lc ? migrateCase(rc) : lc;
-    // 入場チェックは追記型ログなので勝敗に関わらず両方残す
+    // 入場チェック・連絡板は追記型ログなので勝敗に関わらず両方残す
     const seen = new Set((win.checkins || []).map(k => k.id));
     (lose.checkins || []).forEach(k => { if(!seen.has(k.id)) win.checkins.push(k); });
+    const seenM = new Set((win.messages || []).map(m => m.id));
+    (lose.messages || []).forEach(m => { if(!seenM.has(m.id)) win.messages.push(m); });
     byId.set(rc.id, win);
   }
   const tombs = new Map((db.deleted || []).map(d => [d.id, d.at]));
