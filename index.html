@@ -406,10 +406,13 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <p class="muted" style="margin-bottom:8px">この案件が見えるメンバー全員に届きます。「材料届きました」「明日9時に入ります」など気軽にどうぞ。</p>
         <div id="msg-list"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-outline" id="msg-photo-btn" style="flex-shrink:0;padding:12px 14px" title="写真を送る">📷</button>
           <input id="msg-input" placeholder="メッセージを入力" autocomplete="off">
           <button class="btn btn-primary" id="msg-send" style="flex-shrink:0">送信</button>
         </div>
+        <input type="file" id="msg-photo-input" accept="image/*" style="display:none">
         <button class="btn btn-outline btn-sm btn-block" id="msg-refresh" style="margin-top:8px">🔄 新着を確認</button>
+        <div class="muted" style="margin-top:6px;font-size:11.5px">開いている間は約20秒ごとに自動で新着を取り込みます。📷で現場写真をその場で送れます。</div>
       </div>
     </div>
 
@@ -698,7 +701,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.10（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.11（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -831,6 +834,7 @@ function show(view){
   if(view === 'docs') renderDocs();
   if(view === 'settings') renderSettings();
   if(view === 'sched') renderSched();
+  setMsgPolling(view === 'case' && currentCaseTab === 'messages');
   window.scrollTo(0,0);
   saveDB();
 }
@@ -934,6 +938,7 @@ document.getElementById('case-subtabs').addEventListener('click', e => {
   currentCaseTab = b.dataset.tab;
   renderCase();
   if(currentCaseTab === 'messages') refreshMessages(true);  // 連絡板を開いたら新着を取得
+  setMsgPolling(currentCaseTab === 'messages');
 });
 function renderCase(){
   const c = getCase(currentCaseId); if(!c){ show('home'); return; }
@@ -969,9 +974,43 @@ function renderMessages(c){
     const mine = m.userId === myUid();
     const d = new Date(m.at);
     const time = isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${esc(m.text)}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
+    const photo = m.photo && m.photo.url
+      ? `<a href="${esc(m.photo.url)}" target="_blank" rel="noopener"><img src="${esc(m.photo.url)}" loading="lazy" style="max-width:210px;width:100%;border-radius:8px;display:block;margin:2px 0"></a>`
+      : '';
+    return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${photo}${m.text && m.text !== '📷 写真' ? esc(m.text) : (photo ? '' : esc(m.text))}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
   }).join('') : '<p class="muted" style="padding:12px">まだメッセージがありません。</p>';
   list.scrollTop = list.scrollHeight;
+}
+/* 写真つきメッセージ（サーバー保存が前提のためオンライン時のみ） */
+document.getElementById('msg-photo-btn').onclick = () => {
+  if(!(sync.method === 'xserver' && syncReady())){ toast('写真送信はクラウド同期の設定後に使えます'); return; }
+  document.getElementById('msg-photo-input').click();
+};
+document.getElementById('msg-photo-input').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  const c = getCase(currentCaseId); if(!c) return;
+  toast('写真を送信中…');
+  try{
+    const full = await compressImage(f, 1100, 0.7);
+    const url = await uploadPhoto(full);
+    if(!url){ toast('送信できませんでした（電波を確認してください）'); return; }
+    const text = document.getElementById('msg-input').value.trim() || '📷 写真';
+    document.getElementById('msg-input').value = '';
+    c.messages.push({ id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text, photo: { url } });
+    c.updatedAt = new Date().toISOString();
+    saveDB();
+    renderMessages(c);
+    refreshMessages(true);
+  }catch(err){ toast('写真の送信に失敗しました'); }
+};
+/* 連絡板を開いている間の自動更新（約20秒） */
+let msgPoll = null;
+function setMsgPolling(on){
+  clearInterval(msgPoll); msgPoll = null;
+  if(on) msgPoll = setInterval(() => {
+    if(currentView === 'case' && currentCaseTab === 'messages' && !syncing && syncReady()) refreshMessages(true);
+  }, 20000);
 }
 function refreshMessages(silent){
   if(!syncReady()) { if(!silent) toast('クラウド同期の設定後に使えます'); return; }
@@ -1179,8 +1218,9 @@ function renderPhotoGrid(photos, gridId, inputId, rerender, max = 6){
 }
 async function handlePhotoInput(e, photos, rerender, max = 6, maxSide = 1100, quality = 0.72){
   const files = [...e.target.files].slice(0, max - photos.length);
+  if(files.length) toast('写真を取り込み中…');
   for(const f of files){
-    try{ photos.push({ data: await compressImage(f, maxSide, quality), label:'現状' }); }
+    try{ photos.push(await processNewPhoto(f, maxSide, quality)); }
     catch(err){ toast('写真の読み込みに失敗しました'); }
   }
   e.target.value = '';
@@ -1190,6 +1230,63 @@ async function handlePhotoInput(e, photos, rerender, max = 6, maxSide = 1100, qu
 document.getElementById('photo-input').onchange = e => { const it = getItem(); if(it) handlePhotoInput(e, it.photos, () => renderItem()); };
 /* 日報写真は最大20枚。枚数が多いため書類品質を保てる範囲で強めに圧縮 */
 document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport(), 20, 900, 0.6); };
+
+/* ---- 写真のサーバー保存（本体はサーバー、端末には縮小サムネのみ） ---- */
+function makeThumb(dataUrl, maxSide = 280, quality = 0.55){
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let { width:w, height:h } = img;
+      if(Math.max(w,h) > maxSide){ const r = maxSide / Math.max(w,h); w = Math.round(w*r); h = Math.round(h*r); }
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+async function uploadPhoto(dataUrl){
+  if(!(sync.method === 'xserver' && syncReady())) return null;
+  try{
+    const res = await fetch(sync.apiUrl + '?action=photoup', {
+      method:'POST', headers:{ 'X-Api-Key': sync.apiKey, 'Content-Type':'application/json' },
+      body: JSON.stringify({ data: dataUrl })
+    });
+    if(!res.ok) return null;
+    return (await res.json()).url || null;
+  }catch(e){ return null; }
+}
+/* 撮影→フル画質はサーバーへ、端末にはサムネだけ。オフライン時はフルを端末に保留し次回同期で送る */
+async function processNewPhoto(file, maxSide, quality){
+  const full = await compressImage(file, maxSide, quality);
+  const url = await uploadPhoto(full);
+  if(url) return { data: await makeThumb(full), url, label:'現状' };
+  return { data: full, pending: true, label:'現状' };
+}
+/* 保留中・旧形式（フル画質のまま端末に残っている）写真を順次サーバーへ移す */
+async function flushPendingPhotos(limit = 8){
+  if(!(sync.method === 'xserver' && syncReady())) return;
+  let n = 0;
+  for(const c of db.cases){
+    const groups = [...c.items.map(i => i.photos), ...c.reports.map(r => r.photos || [])];
+    for(const photos of groups){
+      for(const p of photos){
+        if(n >= limit) return;
+        const needs = p.pending || (!p.url && p.data && p.data.length > 60000);
+        if(!needs) continue;
+        const url = await uploadPhoto(p.data);
+        if(!url) return;  /* オフライン等 → 次回の同期でまた試す */
+        p.url = url;
+        p.data = await makeThumb(p.data);
+        delete p.pending;
+        c.updatedAt = new Date().toISOString();
+        n++;
+      }
+    }
+  }
+  if(n) localStorage.setItem(LS_KEY, JSON.stringify(db));
+}
 
 function compressImage(file, maxSide = 1100, quality = 0.72){
   return new Promise((resolve, reject) => {
@@ -1219,6 +1316,7 @@ const anno = {
 function openAnnotator(photo, onDone){
   anno.photo = photo; anno.onDone = onDone; anno.shapes = []; anno.cur = null;
   const img = new Image();
+  if(photo.url) img.crossOrigin = 'anonymous';  /* サーバー写真を編集可能にする（CORS） */
   img.onload = () => {
     anno.img = img;
     anno.canvas.width = img.naturalWidth;
@@ -1227,7 +1325,11 @@ function openAnnotator(photo, onDone){
     anno.el.hidden = false;
     document.body.style.overflow = 'hidden';
   };
-  img.src = photo.data;
+  img.onerror = () => {
+    if(photo.url && img.src === photo.url){ img.crossOrigin = null; img.src = photo.data; }  /* オフライン時はサムネで編集 */
+    else toast('写真を読み込めませんでした');
+  };
+  img.src = photo.url || photo.data;
 }
 function closeAnnotator(){ anno.el.hidden = true; document.body.style.overflow = ''; }
 function lw(){ return Math.max(3, Math.round(anno.canvas.width / 160)); }
@@ -1309,11 +1411,16 @@ document.querySelectorAll('#anno-top .colorbox').forEach(b => b.onclick = () => 
 });
 document.getElementById('anno-undo').onclick = () => { anno.shapes.pop(); annoRedraw(); };
 document.getElementById('anno-cancel').onclick = closeAnnotator;
-document.getElementById('anno-save').onclick = () => {
+document.getElementById('anno-save').onclick = async () => {
   if(anno.shapes.length){
-    if(!anno.photo.orig) anno.photo.orig = anno.photo.data;
+    if(!anno.photo.orig) anno.photo.orig = anno.photo.url || anno.photo.data;
     annoRedraw();
-    anno.photo.data = anno.canvas.toDataURL('image/jpeg', 0.8);
+    let full;
+    try{ full = anno.canvas.toDataURL('image/jpeg', 0.8); }
+    catch(e){ toast('この写真は編集を保存できません（オフライン時のサーバー写真）'); closeAnnotator(); return; }
+    const url = await uploadPhoto(full);
+    if(url){ anno.photo.url = url; anno.photo.data = await makeThumb(full); delete anno.photo.pending; }
+    else { anno.photo.data = full; delete anno.photo.url; anno.photo.pending = true; }
   }
   closeAnnotator();
   if(anno.onDone) anno.onDone();
@@ -1631,7 +1738,8 @@ function renderReportList(c){
       </tr>`;
     }).join('');
     sum.innerHTML = `日報 ${c.reports.length}件 ／ のべ人工 <b>${totalMen}人</b>
-      <div style="overflow-x:auto;margin-top:8px">
+      <div style="font-weight:700;color:var(--navy);margin:8px 0 2px;font-size:13px">📊 月別のべ人工</div>
+      <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr style="font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)"><th style="text-align:left;padding:3px">月</th><th style="text-align:right;padding:3px">稼働日</th><th style="text-align:right;padding:3px">のべ人工</th><th style="text-align:left;padding:3px">内訳</th></tr>
         ${rows}
@@ -1851,7 +1959,7 @@ function baseInfoTable(c){
 function photosHtml(photos){
   if(!photos || !photos.length) return '';
   return `<div class="item-photos">${photos.map(p =>
-    `<figure><img src="${p.data}"><figcaption>${esc(p.label)}</figcaption></figure>`).join('')}</div>`;
+    `<figure><img src="${p.url || p.data}"><figcaption>${esc(p.label)}</figcaption></figure>`).join('')}</div>`;
 }
 function drawingsHtml(c){
   if(!c.drawings.length) return '';
@@ -2589,6 +2697,7 @@ async function syncNow(silent){
   try{
     collectAll();
     if(sync.method === 'xserver'){
+      await flushPendingPhotos();  /* 端末に残っているフル画質写真をサーバーへ移す */
       const v2ok = await xsSyncV2();
       if(!v2ok) await legacySync();
     } else {
