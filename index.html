@@ -748,7 +748,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.21（試作版・PWA・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.22（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -798,6 +798,23 @@ function saveUiPrefs(){ localStorage.setItem('genbaRepoUI', JSON.stringify(uiPre
 function migrateCase(c){
   c.honor = c.honor || '様';
   c.items = c.items || [];
+  /* 不完全なデータでも落ちないように、配列であるべき項目を正規化 */
+  if(!Array.isArray(c.items)) c.items = [];
+  c.items.forEach(it => { if(!Array.isArray(it.photos)) it.photos = []; });
+  if(!Array.isArray(c.reports)) c.reports = [];
+  c.reports.forEach(r => {
+    if(!Array.isArray(r.photos)) r.photos = [];
+    if(!Array.isArray(r.workers)) r.workers = [];
+  });
+  if(!Array.isArray(c.drawings)) c.drawings = [];
+  c.drawings.forEach(d => { if(!Array.isArray(d.pins)) d.pins = []; });
+  if(!Array.isArray(c.tasks)) c.tasks = [];
+  if(!Array.isArray(c.orders)) c.orders = [];
+  c.orders.forEach(o => { if(!Array.isArray(o.lines)) o.lines = []; });
+  if(!Array.isArray(c.checkins)) c.checkins = [];
+  if(!Array.isArray(c.messages)) c.messages = [];
+  if(!c.estimate || typeof c.estimate !== 'object') c.estimate = { lines:[], taxRate:10, note:'' };
+  if(!Array.isArray(c.estimate.lines)) c.estimate.lines = [];
   c.estimate = c.estimate || { lines:[], taxRate:10, note:'' };
   c.drawings = c.drawings || [];
   c.tasks = c.tasks || [];
@@ -1372,7 +1389,10 @@ async function flushPendingPhotos(limit = 8){
   if(!(sync.method === 'xserver' && syncReady())) return;
   let n = 0;
   for(const c of db.cases){
-    const groups = [...c.items.map(i => i.photos), ...c.reports.map(r => r.photos || [])];
+    const groups = [
+      ...(c.items || []).map(i => Array.isArray(i.photos) ? i.photos : []),
+      ...(c.reports || []).map(r => Array.isArray(r.photos) ? r.photos : []),
+    ];
     for(const photos of groups){
       for(const p of photos){
         if(n >= limit) return;
@@ -2873,7 +2893,7 @@ function loadSync(){
       return s;
     }
   }catch(e){}
-  return { method:'xserver', apiUrl:'', apiKey:'', repo:'004zero/genba-report-data', token:'', auto:true, lastSync:'' };
+  return { method:'xserver', apiUrl:'', apiKey:'', repo:'004zero/genba-report-data', token:'', auto:true, lastSync:'', tenant:null };
 }
 function syncReady(){
   return sync.method === 'github' ? !!sync.token : !!(sync.apiUrl && sync.apiKey);
@@ -2983,6 +3003,10 @@ async function xsSyncV2(){
     body: JSON.stringify({ cases: db.cases, deleted: db.deleted || [], company: db.company })
   });
   if(res.status === 401) throw new Error('合言葉（または招待）が無効です');
+  if(res.status === 402){
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.message || 'ご契約が停止されています');
+  }
   if(res.status === 404) return false;
   if(res.status === 413) throw new Error('データが大きすぎます（写真を減らすかサーバー設定を確認）');
   if(!res.ok) throw new Error('同期エラー HTTP' + res.status);
@@ -2993,6 +3017,7 @@ async function xsSyncV2(){
     db.company = Object.assign({ name:'', person:'', address:'', tel:'', email:'', logo:'', estNote:'' }, j.company);
   }
   if(j.user){ sync.user = j.user; }
+  if(j.tenant){ sync.tenant = j.tenant; }
   localStorage.setItem(LS_KEY, JSON.stringify(db));
   return true;
 }
@@ -3059,6 +3084,12 @@ function renderSyncStatus(err){
   if(!el) return;
   if(err){ el.innerHTML = `<span style="color:var(--red)">⚠ ${esc(err)}</span>`; return; }
   const who = sync.user ? `　👤 ${sync.user.name}（${sync.user.role === 'admin' ? '管理者' : 'メンバー'}）` : '';
+  if(sync.tenant){
+    const pl = { trial:'お試し', free:'無料', personal:'個人', pro:'Pro', team:'Team', owner:'運営' }[sync.tenant.plan] || '';
+    el.textContent = `🏢 ${sync.tenant.name}${pl ? '（' + pl + '）' : ''}`;
+    el.textContent += '　' + (sync.lastSync ? `✅ 最終同期：${new Date(sync.lastSync).toLocaleString('ja-JP')}` : '未同期') + who;
+    return;
+  }
   el.textContent = (sync.lastSync
     ? `✅ 最終同期：${new Date(sync.lastSync).toLocaleString('ja-JP')}`
     : (syncReady() ? 'まだ同期していません' : '未設定（下の手順を開いて設定してください）')) + who;

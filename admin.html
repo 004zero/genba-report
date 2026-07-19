@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>ゲンバレポ 運営管理｜契約会社の管理</title>
+<style>
+:root{--navy:#1a3a5c;--orange:#e8762d;--bg:#f2f4f7;--card:#fff;--line:#dde3ea;--text:#2b3440;--sub:#6b7686;--red:#d64541;--green:#2e9e5b;--blue-l:#e9f1fa;--yellow-l:#fdf6e0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6}
+header{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+header h1{font-size:17px;flex:1}
+main{max-width:960px;margin:0 auto;padding:16px 14px 60px}
+.card{background:var(--card);border-radius:12px;box-shadow:0 1px 4px rgba(20,40,70,.08);padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;color:var(--navy);border-left:4px solid var(--orange);padding-left:8px;margin-bottom:12px}
+label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin:12px 0 5px}
+input,select,textarea{font-family:inherit;font-size:16px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;padding:11px 18px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-outline{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-danger{background:#fff;color:var(--red);border:1.5px solid var(--red)}
+.btn-sm{padding:6px 12px;font-size:13px;border-radius:8px}
+.btn-block{width:100%;margin-top:10px}
+.muted{color:var(--sub);font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11.5px;color:var(--sub);border-bottom:1px solid var(--line);padding:6px 4px;white-space:nowrap}
+td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.st-active{background:#e8f6ee;color:var(--green)}
+.st-suspended{background:#fdecec;color:var(--red)}
+.plan{display:inline-block;font-size:11px;padding:1px 8px;border-radius:4px;background:var(--blue-l);color:var(--navy);font-weight:700}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stat .cell{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(20,40,70,.08);padding:10px 6px;text-align:center}
+.stat .num{font-size:22px;font-weight:800;color:var(--navy);line-height:1.2}
+.stat .lbl{font-size:10.5px;color:var(--sub)}
+.modal-bg{position:fixed;inset:0;background:rgba(15,25,40,.55);z-index:80;display:flex;align-items:center;justify-content:center;padding:18px}
+.modal-bg[hidden]{display:none}
+.modal-box{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:460px;max-height:86vh;overflow-y:auto}
+.modal-box h3{font-size:15px;color:var(--navy);margin-bottom:10px}
+.keybox{background:var(--yellow-l);border:1px solid #e8d9a0;border-radius:8px;padding:10px;font-size:12px;word-break:break-all;font-family:monospace;margin:6px 0}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(30,40,55,.92);color:#fff;padding:10px 20px;border-radius:24px;font-size:13.5px;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+@media (max-width:640px){.stat{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏢 ゲンバレポ 運営管理</h1>
+  <button class="btn btn-sm" id="logout-btn" style="background:rgba(255,255,255,.15);color:#fff;display:none">ログアウト</button>
+</header>
+<main>
+  <!-- ログイン -->
+  <section id="login-view">
+    <div class="card">
+      <h2>運営者ログイン</h2>
+      <p class="muted">運営者キー（config.php の OWNER_KEY）を入力してください。この画面は契約会社の発行・停止を行うためのものです。</p>
+      <label>APIのURL</label>
+      <input id="in-url" placeholder="https://genbarepo.com/genba-api/genba-api/api.php" autocomplete="off">
+      <label>運営者キー</label>
+      <input id="in-key" type="password" placeholder="OWNER_KEY を貼り付け" autocomplete="off">
+      <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text)"><input type="checkbox" id="in-save" style="width:auto" checked> この端末に記憶する</label>
+      <button class="btn btn-primary btn-block" id="login-btn">ログイン</button>
+      <div class="muted" id="login-msg" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- 管理画面 -->
+  <section id="admin-view" style="display:none">
+    <div class="stat" id="stat"></div>
+    <div class="card">
+      <h2>契約会社の一覧</h2>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>会社名</th><th>プラン</th><th>状態</th><th style="text-align:right">案件</th><th style="text-align:right">人数</th><th>最終利用</th><th></th></tr></thead>
+        <tbody id="tenant-rows"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>新しい契約会社を追加</h2>
+      <div class="row2">
+        <div><label>会社名</label><input id="new-name" placeholder="例：〇〇建設"></div>
+        <div><label>プラン</label>
+          <select id="new-plan">
+            <option value="trial">お試し（無料モニター）</option>
+            <option value="free">無料プラン</option>
+            <option value="personal">個人職人（月980円）</option>
+            <option value="pro">Pro（月1,980円）</option>
+            <option value="team">Team（月4,980円〜）</option>
+          </select>
+        </div>
+      </div>
+      <label>メモ（担当者名・連絡先・契約開始日など）</label>
+      <textarea id="new-note" rows="2" placeholder="例：田中様 090-0000-0000 2026/8/1開始"></textarea>
+      <button class="btn btn-primary btn-block" id="add-btn">＋ 会社を発行して招待情報を表示</button>
+    </div>
+  </section>
+</main>
+<div class="modal-bg" id="modal-bg" hidden><div class="modal-box" id="modal-box"></div></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const LS = 'genbaRepoAdmin_v1';
+let cfg = (function(){ try{ return JSON.parse(localStorage.getItem(LS)) || {}; }catch(e){ return {}; } })();
+let tenants = [];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PLAN_LABEL = { trial:'お試し', free:'無料', personal:'個人980', pro:'Pro1,980', team:'Team4,980〜', owner:'運営（自社）' };
+
+function toast(m){ const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 1900); }
+const modalBg = document.getElementById('modal-bg'), modalBox = document.getElementById('modal-box');
+function openModal(h){ modalBox.innerHTML = h; modalBg.hidden = false; }
+function closeModal(){ modalBg.hidden = true; modalBox.innerHTML = ''; }
+modalBg.addEventListener('click', e => { if(e.target === modalBg) closeModal(); });
+
+function normUrl(u){
+  u = (u || '').trim();
+  if(!u) return '';
+  if(!/^https?:\/\//.test(u)) u = 'https://' + u;
+  if(/\.php(\?|$)/.test(u)) return u;
+  if(!u.endsWith('/')) u += '/';
+  if(!u.includes('genba-api')) u += 'genba-api/';
+  return u + 'api.php';
+}
+async function api(action, body){
+  const res = await fetch(cfg.url + '?action=' + action, {
+    method: body ? 'POST' : 'GET',
+    headers: Object.assign({ 'X-Api-Key': cfg.key }, body ? { 'Content-Type':'application/json' } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(res.status === 403 || res.status === 401) throw new Error('運営者キーが違います');
+  if(res.status === 404) throw new Error('サーバーのapi.phpが古い版です（最新のgenba-api.zipを再アップロード）');
+  if(!res.ok) throw new Error('HTTP' + res.status);
+  return res.json();
+}
+
+document.getElementById('login-btn').onclick = async () => {
+  cfg.url = normUrl(document.getElementById('in-url').value);
+  cfg.key = document.getElementById('in-key').value.trim();
+  const msg = document.getElementById('login-msg');
+  if(!cfg.url || !cfg.key){ msg.textContent = 'URLとキーを入力してください'; return; }
+  msg.textContent = '接続中…';
+  try{
+    await loadTenants();
+    if(document.getElementById('in-save').checked) localStorage.setItem(LS, JSON.stringify(cfg));
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('admin-view').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-flex';
+    msg.textContent = '';
+  }catch(e){ msg.innerHTML = '<span style="color:var(--red)">⚠ ' + esc(e.message) + '</span>'; }
+};
+document.getElementById('logout-btn').onclick = () => {
+  localStorage.removeItem(LS); cfg = {};
+  document.getElementById('login-view').style.display = 'block';
+  document.getElementById('admin-view').style.display = 'none';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('in-key').value = '';
+};
+
+async function loadTenants(){
+  tenants = (await api('tenants')).tenants || [];
+  render();
+}
+function render(){
+  const active = tenants.filter(t => (t.status || 'active') === 'active');
+  const paying = active.filter(t => ['personal','pro','team'].includes(t.plan));
+  const mrr = active.reduce((s,t) => s + ({ personal:980, pro:1980, team:4980 }[t.plan] || 0), 0);
+  document.getElementById('stat').innerHTML = `
+    <div class="cell"><div class="num">${tenants.length}</div><div class="lbl">登録会社</div></div>
+    <div class="cell"><div class="num">${active.length}</div><div class="lbl">稼働中</div></div>
+    <div class="cell"><div class="num">${paying.length}</div><div class="lbl">有料契約</div></div>
+    <div class="cell"><div class="num">${mrr.toLocaleString()}<span style="font-size:12px">円</span></div><div class="lbl">月間売上（目安）</div></div>`;
+  document.getElementById('tenant-rows').innerHTML = tenants.map(t => {
+    const st = t.status || 'active';
+    const last = t.lastSaved ? new Date(t.lastSaved).toLocaleDateString('ja-JP') : '—';
+    return `<tr>
+      <td><b>${esc(t.name)}</b>${t.note ? `<div class="muted" style="font-size:11px">${esc(t.note)}</div>` : ''}</td>
+      <td><span class="plan">${esc(PLAN_LABEL[t.plan] || t.plan || '—')}</span></td>
+      <td><span class="badge st-${st}">${st === 'active' ? '稼働' : '停止'}</span></td>
+      <td style="text-align:right">${t.cases ?? 0}</td>
+      <td style="text-align:right">${t.users ?? 0}</td>
+      <td class="muted" style="font-size:12px">${last}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-navy btn-sm" data-invite="${t.id}">招待</button>
+        <button class="btn btn-outline btn-sm" data-edit="${t.id}">編集</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted">まだ契約会社がありません。</td></tr>';
+  document.querySelectorAll('[data-invite]').forEach(b => b.onclick = () => showInvite(tenants.find(t => t.id === b.dataset.invite)));
+  document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => showEdit(tenants.find(t => t.id === b.dataset.edit)));
+}
+
+document.getElementById('add-btn').onclick = async () => {
+  const name = document.getElementById('new-name').value.trim();
+  if(!name){ toast('会社名を入力してください'); return; }
+  try{
+    const j = await api('tenantadd', { name, plan: document.getElementById('new-plan').value, note: document.getElementById('new-note').value.trim() });
+    document.getElementById('new-name').value = ''; document.getElementById('new-note').value = '';
+    await loadTenants();
+    showInvite(tenants.find(t => t.id === j.tenant.id) || j.tenant);
+  }catch(e){ toast(e.message); }
+};
+
+function appBase(){ return location.origin + location.pathname.replace(/admin\.html$/, ''); }
+function inviteLink(t){
+  const p = { m:'xserver', u: cfg.url, k: t.adminKey };
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(p)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return appBase() + '#join=' + b64;
+}
+function showInvite(t){
+  if(!t) return;
+  const link = inviteLink(t);
+  openModal(`<h3>📨 ${esc(t.name)} さんの導入案内</h3>
+    <p class="muted">下の案内文をそのままメール・メッセージで送れば、相手はリンクを開いて「参加する」を押すだけで使い始められます。</p>
+    <label>そのまま送れる案内文</label>
+    <textarea id="inv-text" rows="12" style="font-size:12.5px"></textarea>
+    <button class="btn btn-navy btn-block" id="inv-copy">案内文をコピー</button>
+    <label>管理者キー（相手の会社の合言葉・控え用）</label>
+    <div class="keybox">${esc(t.adminKey || '')}</div>
+    <p class="muted">※ このキーは相手の会社の全データにアクセスできます。取り扱いにご注意ください。</p>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary" id="inv-close" style="flex:1">閉じる</button></div>`);
+  document.getElementById('inv-text').value =
+`${t.name} 御中
+
+ゲンバレポのご利用ありがとうございます。
+下記のリンクを開いて「参加する」を押すと、すぐにお使いいただけます。
+
+【はじめ方】
+① スマホで下のリンクを開く
+${link}
+
+② 「参加する」を押す
+③ ブラウザのメニューから「ホーム画面に追加」
+　（iPhoneはSafariの共有ボタン→ホーム画面に追加）
+
+これで、電波のない現場でもアプリとして使えます。
+写真から報告書・提案書・見積書・工程表・日報が作れます。
+
+ご不明な点はお気軽にご連絡ください。`;
+  document.getElementById('inv-copy').onclick = async () => {
+    try{ await navigator.clipboard.writeText(document.getElementById('inv-text').value); toast('コピーしました'); }
+    catch(e){ document.getElementById('inv-text').select(); document.execCommand('copy'); toast('コピーしました'); }
+  };
+  document.getElementById('inv-close').onclick = closeModal;
+}
+function showEdit(t){
+  if(!t) return;
+  const st = t.status || 'active';
+  openModal(`<h3>⚙ ${esc(t.name)} の契約設定</h3>
+    <label>会社名</label><input id="ed-name" value="${esc(t.name)}">
+    <label>プラン</label>
+    <select id="ed-plan">
+      ${Object.entries(PLAN_LABEL).map(([k,v]) => `<option value="${k}" ${t.plan === k ? 'selected' : ''}>${v}</option>`).join('')}
+    </select>
+    <label>メモ</label><textarea id="ed-note" rows="2">${esc(t.note || '')}</textarea>
+    <label>契約状態</label>
+    <select id="ed-status">
+      <option value="active" ${st === 'active' ? 'selected' : ''}>稼働中（利用できる）</option>
+      <option value="suspended" ${st === 'suspended' ? 'selected' : ''}>停止（未入金・解約）</option>
+    </select>
+    <p class="muted" style="margin-top:6px">※ 停止にしてもデータは消えません。再開すればそのまま使えます。</p>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-outline" id="ed-cancel" style="flex:1">キャンセル</button>
+      <button class="btn btn-primary" id="ed-ok" style="flex:1">保存</button>
+    </div>`);
+  document.getElementById('ed-cancel').onclick = closeModal;
+  document.getElementById('ed-ok').onclick = async () => {
+    try{
+      await api('tenantset', { id: t.id, name: document.getElementById('ed-name').value.trim(),
+        plan: document.getElementById('ed-plan').value, note: document.getElementById('ed-note').value.trim(),
+        status: document.getElementById('ed-status').value });
+      closeModal(); await loadTenants(); toast('保存しました');
+    }catch(e){ toast(e.message); }
+  };
+}
+
+/* 起動 */
+document.getElementById('in-url').value = cfg.url || (location.origin.includes('github.io') ? 'https://genbarepo.com/genba-api/genba-api/api.php' : '');
+if(cfg.url && cfg.key){
+  document.getElementById('in-key').value = cfg.key;
+  loadTenants().then(() => {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('admin-view').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-flex';
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>
