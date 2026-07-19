@@ -118,6 +118,19 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 .photo-add{aspect-ratio:1;border:2px dashed var(--line);border-radius:8px;background:#fff;color:var(--sub);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .photo-add b{font-size:24px;color:var(--orange)}
 
+/* 写真報告書：フォルダ追加・ドロップ */
+.pr-drop{border:2px dashed var(--line);border-radius:10px;padding:22px 14px;text-align:center;color:var(--sub);font-size:13.5px;background:#fafbfc;cursor:pointer;margin-top:6px}
+.pr-drop.over{border-color:var(--orange);background:var(--orange-l);color:var(--orange)}
+.pr-drop b{display:block;font-size:26px;color:var(--orange);margin-bottom:4px}
+.pr-thumb{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px}
+.pr-thumb img{width:70px;height:52px;object-fit:cover;border-radius:5px;flex-shrink:0;background:var(--blue-l)}
+.pr-thumb .pr-fields{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.pr-thumb .pr-fields input{padding:6px 8px;font-size:13px}
+.pr-thumb .pr-ops{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.pr-thumb .pr-ops button{background:#eef2f6;border:none;border-radius:6px;width:30px;height:24px;font-size:13px;color:var(--navy);cursor:pointer}
+.pr-thumb .pr-ops button.rm{color:var(--red)}
+.pr-thumb .pr-no{position:absolute;margin:-4px 0 0 -4px;background:var(--navy);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center}
+
 /* 図面 */
 .drawing-card{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px;background:#fff}
 .drawing-wrap{position:relative;margin-top:8px;border:1px solid var(--line);border-radius:6px;overflow:hidden;touch-action:manipulation}
@@ -566,11 +579,16 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div id="photorep-card" class="card" style="display:none">
       <h2>写真報告書の設定</h2>
+      <label>フォルダ・アルバムから写真を追加</label>
+      <div class="pr-drop" id="pr-drop"><b>＋</b>ここに写真をドラッグ＆ドロップ<br>またはタップして選択（複数可）</div>
+      <input type="file" id="pr-file" accept="image/*" multiple hidden>
+      <div id="pr-extra-list"></div>
+      <label style="margin-top:16px">案件の写真も入れる</label>
       <div class="row2">
         <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin:0"><input type="checkbox" id="pr-items" style="width:auto"> 調査項目の写真</label>
         <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin:0"><input type="checkbox" id="pr-reports" style="width:auto"> 日報の写真</label>
       </div>
-      <div class="row2">
+      <div class="row2" id="pr-period">
         <div><label>日報の期間（開始・空欄=最初から）</label><input type="date" id="pr-from"></div>
         <div><label>日報の期間（終了・空欄=最後まで）</label><input type="date" id="pr-to"></div>
       </div>
@@ -581,6 +599,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <option value="4">1ページ 4枚（コンパクト）</option>
         <option value="6">1ページ 6枚（枚数が多いとき）</option>
       </select>
+      <div class="muted" style="margin-top:8px;font-size:12px">写真の順番は下のリストの「↑↓」で入れ替えられます。追加した写真 → 調査 → 日報の順に並びます。</div>
     </div>
     <div id="sched-paper-card" class="card" style="display:none">
       <label>工程表の用紙サイズ（印刷時に自動設定されます）</label>
@@ -756,7 +775,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.24（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.25（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -830,6 +849,7 @@ function migrateCase(c){
   c.orders = c.orders || [];
   c.checkins = c.checkins || [];
   c.messages = c.messages || [];
+  c.photoRepExtra = c.photoRepExtra || [];
   c.start = c.start || '';
   c.end = c.end || '';
   return c;
@@ -1402,6 +1422,7 @@ async function flushPendingPhotos(limit = 8){
     const groups = [
       ...(c.items || []).map(i => Array.isArray(i.photos) ? i.photos : []),
       ...(c.reports || []).map(r => Array.isArray(r.photos) ? r.photos : []),
+      Array.isArray(c.photoRepExtra) ? c.photoRepExtra : [],
     ];
     for(const photos of groups){
       for(const p of photos){
@@ -2395,6 +2416,9 @@ function photoRepOpts(){
 }
 function collectPhotoEntries(c, o){
   const out = [];
+  /* フォルダ等から手動で追加した写真（手動の並び順） */
+  (c.photoRepExtra || []).forEach(p =>
+    out.push({ src: p.url || p.data, date: p.date || c.date, label: p.label || '', place: p.place || '', desc: p.desc || '' }));
   if(o.items){
     c.items.forEach(it => (it.photos || []).forEach(p =>
       out.push({ src: p.url || p.data, date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || '' })));
@@ -2412,7 +2436,7 @@ function collectPhotoEntries(c, o){
 function buildPhotoReport(c){
   const o = photoRepOpts();
   const entries = collectPhotoEntries(c, o);
-  if(!entries.length) return docShell('写真報告書', '<p>対象の写真がありません。上の設定で「調査項目の写真」「日報の写真」や期間を確認してください。</p>');
+  if(!entries.length) return docShell('写真報告書', '<p>写真がまだありません。上の「フォルダ・アルバムから写真を追加」から選ぶか、「調査項目の写真」「日報の写真」にチェックを入れてください。</p>');
   const per = Number(o.per) || 3;
   const cols = per <= 3 ? 1 : 2;
   /* 1列レイアウトは表紙情報の分、1ページ目だけ1枚少なくして収める */
@@ -2450,6 +2474,8 @@ function renderPhotoRepCard(){
   document.getElementById('pr-from').value = o.from || '';
   document.getElementById('pr-to').value = o.to || '';
   document.getElementById('pr-per').value = String(o.per || '4');
+  document.getElementById('pr-period').style.display = o.reports ? 'grid' : 'none';
+  renderPhotoRepExtra();
 }
 ['pr-items','pr-reports','pr-from','pr-to','pr-per'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
@@ -2460,10 +2486,77 @@ function renderPhotoRepCard(){
     o.to = document.getElementById('pr-to').value;
     o.per = document.getElementById('pr-per').value;
     saveUiPrefs();
+    document.getElementById('pr-period').style.display = o.reports ? 'grid' : 'none';
     const c = getCase(currentCaseId);
     if(c) renderPreview(c);
   });
 });
+/* ---- 追加写真（フォルダ・ドロップ）の一覧と操作 ---- */
+function renderPhotoRepExtra(){
+  const c = getCase(currentCaseId);
+  const wrap = document.getElementById('pr-extra-list');
+  if(!c || !wrap) return;
+  const list = c.photoRepExtra || [];
+  wrap.innerHTML = list.map((p, idx) => `
+    <div class="pr-thumb" data-idx="${idx}">
+      <div style="position:relative"><span class="pr-no">${idx + 1}</span><img src="${esc(p.url || p.data)}"></div>
+      <div class="pr-fields">
+        <input data-f="place" placeholder="場所（例：外壁 東面）" value="${esc(p.place || '')}">
+        <input data-f="desc" placeholder="内容（例：ひび割れ補修後）" value="${esc(p.desc || '')}">
+      </div>
+      <div class="pr-ops">
+        <button data-op="up" title="上へ" ${idx === 0 ? 'disabled style="opacity:.3"' : ''}>↑</button>
+        <button data-op="down" title="下へ" ${idx === list.length - 1 ? 'disabled style="opacity:.3"' : ''}>↓</button>
+        <button data-op="rm" class="rm" title="削除">✕</button>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.pr-thumb').forEach(row => {
+    const i = Number(row.dataset.idx);
+    row.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+      list[i][inp.dataset.f] = inp.value;
+      c.updatedAt = new Date().toISOString();
+      saveDB();
+      renderPreview(c);
+    });
+    row.querySelectorAll('[data-op]').forEach(b => b.onclick = () => {
+      const op = b.dataset.op;
+      if(op === 'rm'){ list.splice(i, 1); }
+      else if(op === 'up' && i > 0){ [list[i-1], list[i]] = [list[i], list[i-1]]; }
+      else if(op === 'down' && i < list.length - 1){ [list[i+1], list[i]] = [list[i], list[i+1]]; }
+      c.updatedAt = new Date().toISOString();
+      saveDB();
+      renderPhotoRepExtra(); renderPreview(c);
+    });
+  });
+}
+async function addExtraPhotos(files){
+  const c = getCase(currentCaseId); if(!c) return;
+  c.photoRepExtra = c.photoRepExtra || [];
+  const imgs = [...files].filter(f => f.type && f.type.startsWith('image/')).slice(0, 60);
+  if(!imgs.length){ toast('画像ファイルを選んでください'); return; }
+  toast(`写真を${imgs.length}枚 取り込み中…`);
+  for(const f of imgs){
+    try{
+      const full = await compressImage(f, 1100, 0.7);
+      const url = await uploadPhoto(full);
+      const item = { id: uid(), date: today(), label: '', place: '', desc: '' };
+      if(url) item.url = url; else { item.data = full; item.pending = true; }
+      c.photoRepExtra.push(item);
+    }catch(e){ /* 1枚失敗しても続行 */ }
+  }
+  c.updatedAt = new Date().toISOString();
+  if(!saveDB()){ /* 容量超過時は最後の追加を戻す */ c.photoRepExtra.pop(); }
+  renderPhotoRepExtra(); renderPreview(c);
+  toast('追加しました');
+}
+document.getElementById('pr-file').addEventListener('change', e => { addExtraPhotos(e.target.files); e.target.value = ''; });
+(function(){
+  const dz = document.getElementById('pr-drop');
+  dz.addEventListener('click', () => document.getElementById('pr-file').click());
+  ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave','dragend','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+  dz.addEventListener('drop', e => { if(e.dataTransfer && e.dataTransfer.files.length) addExtraPhotos(e.dataTransfer.files); });
+})();
 
 /* ⑦ 発注書 */
 let currentOrderId = null;
