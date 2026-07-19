@@ -220,6 +220,7 @@ function showInvite(t){
     <div class="keybox">${esc(t.adminKey || '')}</div>
     <p class="muted">※ このキーは相手の会社の全データにアクセスできます。取り扱いにご注意ください。</p>
     <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary" id="inv-close" style="flex:1">閉じる</button></div>`);
+  const guide = appBase() + 'guide.html';
   document.getElementById('inv-text').value =
 `${t.name} 御中
 
@@ -237,7 +238,17 @@ ${link}
 これで、電波のない現場でもアプリとして使えます。
 写真から報告書・提案書・見積書・工程表・日報が作れます。
 
-ご不明な点はお気軽にご連絡ください。`;
+【使い方ガイド】
+${guide}
+
+※ ①のリンクは、貴社のデータにつながる大切なリンクです。
+　 社外の方には共有しないようご注意ください。
+　 社員さん・下請けさんの追加は、アプリの
+　 「⚙設定 →👥ユーザー・招待」から行えます。
+
+ご不明な点はお気軽にご連絡ください。
+「ここが使いにくい」「こんな機能がほしい」といったご意見も
+ぜひお聞かせください。`;
   document.getElementById('inv-copy').onclick = async () => {
     try{ await navigator.clipboard.writeText(document.getElementById('inv-text').value); toast('コピーしました'); }
     catch(e){ document.getElementById('inv-text').select(); document.execCommand('copy'); toast('コピーしました'); }
