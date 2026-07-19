@@ -549,6 +549,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <button class="doc-tab active" data-doc="report">調査報告書</button>
       <button class="doc-tab" data-doc="proposal">改善提案書</button>
       <button class="doc-tab" data-doc="customer">お客様向け</button>
+      <button class="doc-tab" data-doc="photorep">写真報告書</button>
       <button class="doc-tab" data-doc="estimate">見積書</button>
       <button class="doc-tab" data-doc="schedule">工程表</button>
       <button class="doc-tab" data-doc="nippo">工事日報</button>
@@ -559,6 +560,23 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     <div id="nippo-picker" class="card" style="display:none">
       <label>印刷する日報の日付</label>
       <select id="nippo-select"></select>
+    </div>
+    <div id="photorep-card" class="card" style="display:none">
+      <h2>写真報告書の設定</h2>
+      <div class="row2">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin:0"><input type="checkbox" id="pr-items" style="width:auto"> 調査項目の写真</label>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin:0"><input type="checkbox" id="pr-reports" style="width:auto"> 日報の写真</label>
+      </div>
+      <div class="row2">
+        <div><label>日報の期間（開始・空欄=最初から）</label><input type="date" id="pr-from"></div>
+        <div><label>日報の期間（終了・空欄=最後まで）</label><input type="date" id="pr-to"></div>
+      </div>
+      <label>レイアウト</label>
+      <select id="pr-per">
+        <option value="2">1ページ 2枚（写真を大きく）</option>
+        <option value="4">1ページ 4枚（標準）</option>
+        <option value="6">1ページ 6枚（枚数が多いとき）</option>
+      </select>
     </div>
     <div id="sched-paper-card" class="card" style="display:none">
       <label>工程表の用紙サイズ（印刷時に自動設定されます）</label>
@@ -729,7 +747,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.19（試作版・PWA・マルチアカウント・工程管理・発注書・保管庫・連絡板・通知・写真サーバー保存対応）<br>
+      <p class="muted">ゲンバレポ v2.20（試作版・PWA・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2339,6 +2357,77 @@ function buildNippoDoc(c, r){
   return docShell('工事日報', body);
 }
 
+/* ⑥b 写真報告書（工事写真台帳スタイル） */
+function photoRepOpts(){
+  if(!uiPrefs.photoRep) uiPrefs.photoRep = { items:true, reports:true, from:'', to:'', per:'4' };
+  return uiPrefs.photoRep;
+}
+function collectPhotoEntries(c, o){
+  const out = [];
+  if(o.items){
+    c.items.forEach(it => (it.photos || []).forEach(p =>
+      out.push({ src: p.url || p.data, date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || '' })));
+  }
+  if(o.reports){
+    [...c.reports].sort((a,b) => (a.date || '').localeCompare(b.date || '')).forEach(r => {
+      if(o.from && r.date < o.from) return;
+      if(o.to && r.date > o.to) return;
+      (r.photos || []).forEach(p =>
+        out.push({ src: p.url || p.data, date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || '' }));
+    });
+  }
+  return out;
+}
+function buildPhotoReport(c){
+  const o = photoRepOpts();
+  const entries = collectPhotoEntries(c, o);
+  if(!entries.length) return docShell('写真報告書', '<p>対象の写真がありません。上の設定で「調査項目の写真」「日報の写真」や期間を確認してください。</p>');
+  const per = Number(o.per) || 4;
+  const cols = per === 2 ? 1 : 2;
+  const chunks = [];
+  for(let i = 0; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
+  let no = 0;
+  const block = e => { no++; return `<div style="border:1px solid #9aa5b1;border-radius:4px;overflow:hidden;break-inside:avoid">
+    <div style="aspect-ratio:4/3;background:#f2f4f7;display:flex;align-items:center;justify-content:center"><img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>
+    <table style="margin:0">
+      <tr><th style="width:48px;text-align:center">No.${no}</th><td style="width:88px;white-space:nowrap">${jpShort(e.date) || ''}${e.label ? '・' + esc(e.label) : ''}</td><th style="width:44px">場所</th><td>${esc(e.place) || '—'}</td></tr>
+      <tr><th style="text-align:center">内容</th><td colspan="3">${esc(e.desc) || '—'}</td></tr>
+    </table>
+  </div>`; };
+  const pageGrid = ch => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px;margin-top:8px">${ch.map(block).join('')}</div>`;
+  let html = docShell('写真報告書', `<table>
+    <tr><th>件名</th><td>${esc(c.title || '')}</td></tr>
+    <tr><th>工事場所</th><td>${esc(c.address || '')}</td></tr>
+    <tr><th>期間</th><td>${o.reports && (o.from || o.to) ? `${o.from ? jpDate(o.from) : ''} 〜 ${o.to ? jpDate(o.to) : ''}` : jpDate(c.date)}</td></tr>
+    <tr><th>写真枚数</th><td>${entries.length}枚（${chunks.length}ページ）</td></tr>
+  </table>` + pageGrid(chunks[0]));
+  for(let i = 1; i < chunks.length; i++){
+    html += `<div class="doc"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #1a3a5c;margin-bottom:6px;padding-bottom:4px"><b style="color:#1a3a5c">写真報告書｜${esc(c.title || '')}</b><span style="font-size:11px;color:#666">${i + 1} / ${chunks.length}</span></div>${pageGrid(chunks[i])}</div>`;
+  }
+  return html;
+}
+function renderPhotoRepCard(){
+  const o = photoRepOpts();
+  document.getElementById('pr-items').checked = !!o.items;
+  document.getElementById('pr-reports').checked = !!o.reports;
+  document.getElementById('pr-from').value = o.from || '';
+  document.getElementById('pr-to').value = o.to || '';
+  document.getElementById('pr-per').value = String(o.per || '4');
+}
+['pr-items','pr-reports','pr-from','pr-to','pr-per'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    const o = photoRepOpts();
+    o.items = document.getElementById('pr-items').checked;
+    o.reports = document.getElementById('pr-reports').checked;
+    o.from = document.getElementById('pr-from').value;
+    o.to = document.getElementById('pr-to').value;
+    o.per = document.getElementById('pr-per').value;
+    saveUiPrefs();
+    const c = getCase(currentCaseId);
+    if(c) renderPreview(c);
+  });
+});
+
 /* ⑦ 発注書 */
 let currentOrderId = null;
 function orderCalc(o){
@@ -2467,6 +2556,8 @@ function renderDocs(){
   document.getElementById('share-editor').style.display = currentDoc === 'share' ? 'block' : 'none';
   document.getElementById('nippo-picker').style.display = currentDoc === 'nippo' ? 'block' : 'none';
   document.getElementById('sched-paper-card').style.display = currentDoc === 'schedule' ? 'block' : 'none';
+  document.getElementById('photorep-card').style.display = currentDoc === 'photorep' ? 'block' : 'none';
+  if(currentDoc === 'photorep') renderPhotoRepCard();
   if(currentDoc === 'schedule') document.getElementById('sched-paper').value = uiPrefs.schedulePaper || 'a4p';
   document.getElementById('order-editor').style.display = currentDoc === 'order' ? 'block' : 'none';
   document.getElementById('archive-panel').style.display = currentDoc === 'archive' ? 'block' : 'none';
@@ -2485,7 +2576,7 @@ function renderDocs(){
   renderPreview(c);
 }
 /* ---- 書類の保管庫（クラウド保存） ---- */
-const DOC_LABELS = { report:'現場調査報告書', proposal:'改善提案書', customer:'お客様向け報告', estimate:'御見積書', schedule:'工程表', nippo:'工事日報', order:'発注書' };
+const DOC_LABELS = { report:'現場調査報告書', proposal:'改善提案書', customer:'お客様向け報告', photorep:'写真報告書', estimate:'御見積書', schedule:'工程表', nippo:'工事日報', order:'発注書' };
 async function archiveCurrentDoc(){
   if(!(sync.method === 'xserver' && syncReady())){ toast('クラウド同期を設定すると書類を保管できます'); return; }
   const c = getCase(currentCaseId); if(!c) return;
@@ -2565,6 +2656,7 @@ function renderPreview(c){
   else if(currentDoc === 'schedule') prev.innerHTML = buildScheduleDoc(c);
   else if(currentDoc === 'nippo') prev.innerHTML = buildNippoDoc(c, pickedNippo(c));
   else if(currentDoc === 'order') prev.innerHTML = buildOrderDoc(c, currentOrder(c));
+  else if(currentDoc === 'photorep') prev.innerHTML = buildPhotoReport(c);
   else if(currentDoc === 'archive') prev.innerHTML = `<div class="doc"><p style="color:#666">上の一覧で「表示」を押すと、保管した書類がここに表示されます。</p></div>`;
   else prev.innerHTML = '';
 }
