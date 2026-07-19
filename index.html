@@ -36,6 +36,8 @@ label:first-child{margin-top:0}
 #app-header{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:8px;padding:12px 14px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 #app-header .back-btn{background:none;border:none;color:#fff;font-size:22px;padding:2px 8px 2px 0;display:none}
 #app-header h1{font-size:17px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app-header .home-btn{display:none;background:rgba(255,255,255,.16);border:none;color:#fff;font-size:13.5px;font-weight:700;padding:7px 12px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+#app-header .home-btn:active{background:rgba(255,255,255,.3)}
 #app-header .icon-btn{background:rgba(255,255,255,.14);border:none;color:#fff;font-size:16px;padding:7px 11px;border-radius:8px}
 main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 .view{display:none}
@@ -296,6 +298,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 
 <header id="app-header">
   <button class="back-btn" id="back-btn">‹</button>
+  <button class="home-btn" id="home-btn" title="ホームに戻る">🏠 ゲンバレポ</button>
   <h1 id="header-title">ゲンバレポ</h1>
   <button class="icon-btn" id="sync-btn" title="今すぐ同期" style="display:none">🔄</button>
   <button class="icon-btn" id="settings-btn" title="設定">⚙ 設定</button>
@@ -753,7 +756,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.23（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.24（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -880,6 +883,7 @@ function show(view){
   document.getElementById(views[view]).classList.add('active');
   document.getElementById('header-title').textContent = titles[view];
   document.getElementById('back-btn').style.display = view === 'home' ? 'none' : 'block';
+  document.getElementById('home-btn').style.display = view === 'home' ? 'none' : 'block';
   document.getElementById('settings-btn').style.display = view === 'home' ? 'block' : 'none';
   document.getElementById('fab').style.display = view === 'home' ? 'block' : 'none';
   const bar = document.getElementById('action-bar');
@@ -914,6 +918,7 @@ document.getElementById('back-btn').onclick = () => {
   if(currentView === 'item' || currentView === 'report' || currentView === 'docs') show('case');
   else show('home');
 };
+document.getElementById('home-btn').onclick = () => { currentMsgCh = ''; show('home'); };
 document.getElementById('settings-btn').onclick = () => show('settings');
 
 function toast(msg){
