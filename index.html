@@ -574,7 +574,8 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <label>レイアウト</label>
       <select id="pr-per">
         <option value="2">1ページ 2枚（写真を大きく）</option>
-        <option value="4">1ページ 4枚（標準）</option>
+        <option value="3">1ページ 3枚（標準・台帳形式）</option>
+        <option value="4">1ページ 4枚（コンパクト）</option>
         <option value="6">1ページ 6枚（枚数が多いとき）</option>
       </select>
     </div>
@@ -747,7 +748,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.20（試作版・PWA・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.21（試作版・PWA・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2359,7 +2360,7 @@ function buildNippoDoc(c, r){
 
 /* ⑥b 写真報告書（工事写真台帳スタイル） */
 function photoRepOpts(){
-  if(!uiPrefs.photoRep) uiPrefs.photoRep = { items:true, reports:true, from:'', to:'', per:'4' };
+  if(!uiPrefs.photoRep) uiPrefs.photoRep = { items:true, reports:true, from:'', to:'', per:'3' };
   return uiPrefs.photoRep;
 }
 function collectPhotoEntries(c, o){
@@ -2382,13 +2383,19 @@ function buildPhotoReport(c){
   const o = photoRepOpts();
   const entries = collectPhotoEntries(c, o);
   if(!entries.length) return docShell('写真報告書', '<p>対象の写真がありません。上の設定で「調査項目の写真」「日報の写真」や期間を確認してください。</p>');
-  const per = Number(o.per) || 4;
-  const cols = per === 2 ? 1 : 2;
-  const chunks = [];
-  for(let i = 0; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
+  const per = Number(o.per) || 3;
+  const cols = per <= 3 ? 1 : 2;
+  /* 1列レイアウトは表紙情報の分、1ページ目だけ1枚少なくして収める */
+  const firstCount = cols === 1 ? Math.max(per - 1, 1) : per;
+  const chunks = [entries.slice(0, firstCount)];
+  for(let i = firstCount; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
+  /* 台帳形式（1列）は写真の高さを固定してページに収める。2列は4:3比率 */
+  const photoBox = cols === 1
+    ? `height:${per === 2 ? 350 : 235}px;background:#f2f4f7;display:flex;align-items:center;justify-content:center`
+    : `aspect-ratio:4/3;background:#f2f4f7;display:flex;align-items:center;justify-content:center`;
   let no = 0;
   const block = e => { no++; return `<div style="border:1px solid #9aa5b1;border-radius:4px;overflow:hidden;break-inside:avoid">
-    <div style="aspect-ratio:4/3;background:#f2f4f7;display:flex;align-items:center;justify-content:center"><img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>
+    <div style="${photoBox}"><img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>
     <table style="margin:0">
       <tr><th style="width:48px;text-align:center">No.${no}</th><td style="width:88px;white-space:nowrap">${jpShort(e.date) || ''}${e.label ? '・' + esc(e.label) : ''}</td><th style="width:44px">場所</th><td>${esc(e.place) || '—'}</td></tr>
       <tr><th style="text-align:center">内容</th><td colspan="3">${esc(e.desc) || '—'}</td></tr>
