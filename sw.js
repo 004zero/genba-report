@@ -1,9 +1,10 @@
 /* ゲンバレポ Service Worker — オフライン対応 */
-const CACHE = 'genbarepo-v2.25.0';
+const CACHE = 'genbarepo-v2.26.0';
 const ASSETS = [
   './',
   './index.html',
   './guide.html',
+  './terms.html',
   './qrcode.js',
   './manifest.webmanifest',
   './icon-192.png',
