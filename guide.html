@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ゲンバレポ 使い方ガイド</title>
 <style>
-:root{--navy:#1a3a5c;--orange:#e8762d;--orange-l:#fdf0e6;--bg:#f2f4f7;--card:#fff;--line:#dde3ea;--text:#2b3440;--sub:#6b7686;--green:#2e9e5b;--green-l:#e8f6ee;--blue-l:#e9f1fa;--red:#d64541}
+:root{--navy:#1a3a5c;--orange:#e8762d;--orange-l:#fdf0e6;--bg:#f2f4f7;--card:#fff;--line:#dde3ea;--text:#2b3440;--sub:#6b7686;--green:#2e9e5b;--green-l:#e8f6ee;--blue-l:#e9f1fa;--red:#d64541;--yellow-l:#fdf6e0}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);font-size:16px;line-height:1.75}
 header{background:var(--navy);color:#fff;padding:28px 18px;text-align:center}
@@ -32,7 +32,6 @@ th{background:var(--blue-l);color:var(--navy);white-space:nowrap}
 .toc{background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(20,40,70,.08)}
 .toc a{color:var(--navy);text-decoration:none;display:block;padding:5px 0;border-bottom:1px dashed var(--line)}
 .toc a:last-child{border-bottom:none}
-.emoji{font-size:19px}
 footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
 @media print{body{background:#fff}.card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}}
 </style>
@@ -47,12 +46,14 @@ footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
     <b style="color:var(--navy)">目次</b>
     <a href="#start">① まずはじめに（スマホに入れる）</a>
     <a href="#basic">② 基本の使い方（案件をつくる）</a>
-    <a href="#photo">③ 写真を撮る・書き込む</a>
-    <a href="#doc">④ 書類をつくる（報告書・見積書など）</a>
-    <a href="#nippo">⑤ 日報と入場チェック</a>
-    <a href="#kotei">⑥ 工程表</a>
-    <a href="#team">⑦ 職人さん・下請けさんと共有する</a>
-    <a href="#qa">⑧ よくある質問</a>
+    <a href="#photo">③ 写真と動画をとる・書き込む</a>
+    <a href="#photorep">④ 写真報告書（工事写真台帳）をつくる</a>
+    <a href="#doc">⑤ 書類をつくる（報告書・見積書など）</a>
+    <a href="#nippo">⑥ 日報と入場チェック</a>
+    <a href="#kotei">⑦ 工程表</a>
+    <a href="#team">⑧ 職人さん・下請けさんと共有する</a>
+    <a href="#madori">⑨ 間取りメーカーと一緒に使う</a>
+    <a href="#qa">⑩ よくある質問</a>
   </div>
 
   <div class="card" id="start">
@@ -73,10 +74,11 @@ footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
     <div class="step"><div class="no">1</div><div class="body"><b>右下の「＋」を押す</b>新しい案件ができます。</div></div>
     <div class="step"><div class="no">2</div><div class="body"><b>案件名・お客様名・現場住所を入れる</b>住所を入れると<b>地図が自動で出ます</b>。「🗺地図アプリで開く」でナビも使えます。</div></div>
     <div class="step"><div class="no">3</div><div class="body"><b>「保存する」を押す</b>これで案件ができました。ホーム画面に一覧で並びます。</div></div>
+    <div class="note">🏠 どの画面にいても、上の「<b>🏠 ゲンバレポ</b>」を押せば一覧（ホーム）に戻れます。書きかけの内容は自動で保存されます。</div>
     <h3>案件の中のタブ</h3>
     <table>
       <tr><th>基本</th><td>お客様・住所・工期・ステータス（調査中／受注／施工中／完了）</td></tr>
-      <tr><th>調査</th><td>不具合の箇所ごとに、写真・状況・危険度・推奨対応を記録</td></tr>
+      <tr><th>調査</th><td>不具合の箇所ごとに、写真・動画・状況・危険度・推奨対応を記録</td></tr>
       <tr><th>図面</th><td>図面の画像を入れて、タップでピン（番号）を打てます</td></tr>
       <tr><th>工程</th><td>工程表（ガントチャート）</td></tr>
       <tr><th>日報</th><td>作業日報と入場記録</td></tr>
@@ -85,22 +87,40 @@ footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
   </div>
 
   <div class="card" id="photo">
-    <h2>③ 写真を撮る・書き込む</h2>
+    <h2>③ 写真と動画をとる・書き込む</h2>
     <div class="step"><div class="no">1</div><div class="body"><b>「調査」タブ →「＋調査項目を追加」</b>不具合1か所につき1項目です。</div></div>
-    <div class="step"><div class="no">2</div><div class="body"><b>「写真を追加」→「カメラで撮影」</b>その場で撮って取り込めます。アルバムからも選べます。</div></div>
-    <div class="step"><div class="no">3</div><div class="body"><b>写真に文字や矢印を書き込む</b>写真の左上の「✎」を押すと、<b>ペン・矢印・囲み枠・文字</b>が書き込めます。「ここが破損」など指で書けます。</div></div>
+    <div class="step"><div class="no">2</div><div class="body"><b>「写真を追加」→「カメラで撮影」</b>その場で撮って取り込めます。アルバムからも選べます（1項目6枚まで）。</div></div>
+    <div class="step"><div class="no">3</div><div class="body"><b>写真に「ここです」を書き込む</b>写真の左上の「✎」を押すと、<b>赤丸・矢印・囲み枠・ペン・文字</b>が指で書き込めます。「ここが割れています」が一目で伝わります。</div></div>
     <div class="step"><div class="no">4</div><div class="body"><b>場所・状況・危険度を入れる</b>ここに入れた内容が、そのまま報告書の文章になります。</div></div>
-    <div class="note">📷 写真は自動でサーバーに保存されます。スマホの容量はほとんど使いません。</div>
+    <h3>🎥 動画（雨漏れ・漏水などに）</h3>
+    <p>写真では伝わらない「水の流れ方」「異音」「動きのある不具合」は動画で残せます。調査項目の下の「<b>🎥 動画を追加</b>」から、1項目につき2本まで。</p>
+    <ul>
+      <li><b>最大5分</b>まで。雨漏れのように症状が出るまで時間がかかる場合も、そのまま撮って大丈夫です</li>
+      <li>長い動画は自動的に分けて送るので、途中で失敗しにくくなっています</li>
+      <li>送信中は「⬆ 送信中… 45%」と進み具合が出ます。<b>Wi-Fiでの送信がおすすめ</b>です</li>
+    </ul>
+    <div class="note">📄 <b>報告書には動画のコマ写真とQRコードが載ります。</b>お客様が紙の報告書のQRをスマホのカメラで読み取ると、その場で動画を見られます。</div>
+    <div class="warn">⚠ 動画はインターネット経由で保存されるため、<b>電波のある場所で追加してください</b>（写真は電波がなくても大丈夫です）。</div>
+  </div>
+
+  <div class="card" id="photorep">
+    <h2>④ 写真報告書（工事写真台帳）をつくる</h2>
+    <p>写真を並べた台帳です。「📄書類を作成」→「<b>写真報告書</b>」タブで作ります。写真の集め方は3通りあり、混ぜて使えます。</p>
+    <div class="step"><div class="no">1</div><div class="body"><b>この現場の写真から選ぶ</b>「📷 この現場の写真から選ぶ」を押すと、<b>調査・日報・連絡板</b>の写真が一覧で出ます。使いたい写真をタップで選ぶだけ。<b>下請けさんが連絡板に送ってくれた写真</b>もここから使えます。</div></div>
+    <div class="step"><div class="no">2</div><div class="body"><b>フォルダ・アルバムから追加</b>パソコンなら点線の枠に<b>写真をドラッグ＆ドロップ</b>。スマホなら枠をタップしてアルバムから選びます（まとめて選択できます）。</div></div>
+    <div class="step"><div class="no">3</div><div class="body"><b>並べ替え・説明を書く</b>追加した写真は一覧に並びます。「↑↓」で順番を入れ替え、「場所」「内容」を入力。「✎」で<b>赤丸や矢印も書き込めます</b>。</div></div>
+    <div class="step"><div class="no">4</div><div class="body"><b>レイアウトを選んで印刷</b>1ページ<b>3枚（標準）</b>のほか、2枚・4枚・6枚から選べます。「🖨印刷・PDF保存」でそのまま提出できます。</div></div>
+    <div class="note">📐 標準の3枚レイアウトは「<b>写真が左・説明が右</b>」に並び、A4に必ず1ページで収まります。印刷設定は<b>用紙A4／余白デフォルト</b>のままでOKです（「ヘッダーとフッター」をオフにすると写真がより大きく出ます）。</div>
   </div>
 
   <div class="card" id="doc">
-    <h2>④ 書類をつくる（報告書・見積書など）</h2>
+    <h2>⑤ 書類をつくる（報告書・見積書など）</h2>
     <p>案件の下の「<b>📄書類を作成</b>」を押すと、入力した内容から書類が自動でできています。文章を考える必要はありません。</p>
     <table>
-      <tr><th>調査報告書</th><td>写真つきで現状・原因・危険性をまとめた報告書</td></tr>
+      <tr><th>調査報告書</th><td>写真・動画つきで現状・原因・危険性をまとめた報告書</td></tr>
       <tr><th>改善提案書</th><td>危険度の高い順に並べ替え、「放置するとどうなるか」と費用の目安つき</td></tr>
       <tr><th>お客様向け</th><td>専門用語をやさしい言葉に変えた説明書</td></tr>
-      <tr><th>写真報告書</th><td>写真を並べた工事写真台帳（1ページ3枚が標準）</td></tr>
+      <tr><th>写真報告書</th><td>写真を並べた工事写真台帳（→ ④をご覧ください）</td></tr>
       <tr><th>見積書</th><td>調査項目から自動で見積り項目を作成。単価を入れるだけ</td></tr>
       <tr><th>工程表</th><td>A4・A3で印刷できる工程表</td></tr>
       <tr><th>工事日報</th><td>その日の日報をA4に</td></tr>
@@ -113,7 +133,7 @@ footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
   </div>
 
   <div class="card" id="nippo">
-    <h2>⑤ 日報と入場チェック</h2>
+    <h2>⑥ 日報と入場チェック</h2>
     <h3>入場チェック（かんたん）</h3>
     <p>案件を開いて一番上の<b>緑のボタンを押すだけ</b>。誰が何時に現場に入ったかが記録されます。押し間違えたらもう一度押せば取り消せます。</p>
     <h3>日報</h3>
@@ -125,38 +145,53 @@ footer{text-align:center;color:var(--sub);font-size:13px;padding:20px}
   </div>
 
   <div class="card" id="kotei">
-    <h2>⑥ 工程表</h2>
+    <h2>⑦ 工程表</h2>
     <div class="step"><div class="no">1</div><div class="body"><b>「工程」タブ →「⚡テンプレートから工程表を一括作成」</b>電気工事・内装リフォーム・外壁塗装・原状回復など<b>18種類</b>から選び、開始日を入れるだけで工程表ができます。</div></div>
     <div class="step"><div class="no">2</div><div class="body"><b>調整する</b>工程のバーをタップすると、日程・担当・進捗を変えられます。</div></div>
-    <div class="step"><div class="no">3</div><div class="body"><b>見やすくする</b>「✅完了した工程を隠す」で終わった作業を隠せます。個別に隠すこともできます。</div></div>
-    <p>ホーム画面の「<b>📅全現場の工程管理</b>」を押すと、すべての現場の「今日の作業」「遅延している工程」がまとめて見られます。</p>
+    <div class="step"><div class="no">3</div><div class="body"><b>見やすくする</b>「✅完了した工程を隠す」で終わった作業を隠せます。工程ごとに「👁この工程を隠す」で個別に隠すこともできます。</div></div>
+    <p>ホーム画面の「<b>📅全現場の工程管理</b>」を押すと、すべての現場の「今日の作業」「遅延している工程」がまとめて見られます。印刷はA4・A3（横・縦）から選べます。</p>
   </div>
 
   <div class="card" id="team">
-    <h2>⑦ 職人さん・下請けさんと共有する</h2>
+    <h2>⑧ 職人さん・下請けさんと共有する</h2>
     <div class="step"><div class="no">1</div><div class="body"><b>⚙設定 →「👥ユーザー・招待」</b>名前を入れて「＋追加して招待QRを表示」を押します。</div></div>
     <div class="step"><div class="no">2</div><div class="body"><b>QRを読み取ってもらう</b>相手のスマホのカメラで読み取って「参加する」を押すだけ。設定入力は不要です。</div></div>
     <div class="step"><div class="no">3</div><div class="body"><b>見せる現場を決める</b>案件の「基本」タブの一番下「この案件を見られる人」で、その人に見せる現場だけを選べます。</div></div>
-    <div class="warn">🔒 <b>下請けさんには金額が見えません。</b>調査費用・見積書・のべ人工（他社分）は自動的に隠れます。発注書は「その人宛のもの」だけが見えます。</div>
+    <div class="warn">🔒 <b>下請けさんには金額が見えません。</b>調査費用・見積書・他社の作業人数は自動的に隠れます。発注書は「その人宛のもの」だけが見えます。</div>
     <h3>連絡板</h3>
-    <p>「連絡」タブで、その現場のメンバーとやりとりできます。<b>「👥全体」</b>と<b>「🔒個別（1対1）」</b>を切り替えられます。写真も送れます。新しい連絡が来ると<b>通知</b>が届きます（⚙設定→プッシュ通知でオンにしてください）。</p>
+    <p>「連絡」タブで、その現場のメンバーとやりとりできます。<b>「👥全体」</b>と<b>「🔒個別（元請け⇔その業者だけ）」</b>を切り替えられます。写真も送れて、新しい連絡が来ると<b>通知</b>が届きます（⚙設定→プッシュ通知でオンにしてください）。</p>
+    <div class="note">💡 連絡板に送られた写真は、<b>そのまま写真報告書に使えます</b>（④の「この現場の写真から選ぶ」）。</div>
+  </div>
+
+  <div class="card" id="madori">
+    <h2>⑨ 間取りメーカーと一緒に使う</h2>
+    <p>原状回復・退去立会い用の「<b>間取りメーカー</b>」もお使いの場合、同じ物件を行き来できます（両方をご契約の場合）。</p>
+    <div class="step"><div class="no">1</div><div class="body"><b>間取りメーカー → ゲンバレポ</b>物件カルテの「<b>🏗 ゲンバレポで開く</b>」を押すと、その物件の案件がゲンバレポで開きます。まだ無ければ<b>物件名・住所を引き継いで自動で作成</b>されます。</div></div>
+    <div class="step"><div class="no">2</div><div class="body"><b>間取り図がそのまま図面に</b>「間取り図も送りますか？」に「OK」と答えると、間取り図が<b>ゲンバレポの「図面」タブに自動で入り</b>、ピン打ちに使えます。</div></div>
+    <div class="step"><div class="no">3</div><div class="body"><b>ゲンバレポ → 間取りメーカー</b>紐づいた案件の上に「<b>🏠 この物件を間取りメーカーで開く</b>」が出ます。ワンタップで戻れます。</div></div>
+    <div class="note">🏢 使い分けの目安：<b>数をこなす原状回復</b>は間取りメーカー、<b>1件ずつ深く進める改修・リフォーム・新築</b>はゲンバレポ。大型の物件は両方でつないで管理できます。</div>
   </div>
 
   <div class="card" id="qa">
-    <h2>⑧ よくある質問</h2>
+    <h2>⑩ よくある質問</h2>
     <h3>電波のない現場でも使えますか？</h3>
-    <p>使えます。ホーム画面から起動すれば、写真も日報も普通に記録できます。電波の戻った場所で自動的にサーバーへ送られます。</p>
+    <p>使えます。ホーム画面から起動すれば、写真も日報も普通に記録できます。電波の戻った場所で自動的にサーバーへ送られます。（動画の追加と、連絡板だけは電波が必要です）</p>
+    <h3>写真報告書が2ページに分かれてしまいます</h3>
+    <p>現在は1ページに必ず収まるようになっています。それでも分かれる場合は、印刷画面で<b>倍率を100%</b>、<b>用紙をA4</b>、<b>余白を「デフォルト」</b>にしてお試しください。</p>
     <h3>データが消えることはありませんか？</h3>
     <p>データはサーバーに保存され、自動でバックアップも残ります。スマホを機種変更しても、新しい端末で招待リンクを開けばそのまま続けられます。</p>
     <h3>アプリの更新はどうすればいいですか？</h3>
     <p>何もしなくて大丈夫です。アプリを開き直すと自動的に最新になります。</p>
-    <h3>写真は何枚まで入りますか？</h3>
-    <p>調査項目は1か所あたり6枚、日報は1日あたり20枚まで入ります。</p>
+    <h3>写真・動画は何枚（何本）まで入りますか？</h3>
+    <p>調査項目は1か所あたり写真6枚・動画2本、日報は1日あたり写真20枚まで。写真報告書に入れる枚数に制限はありません。</p>
+    <h3>動画が「大きすぎます」と出ます</h3>
+    <p>5分を超えているか、画質が高すぎる可能性があります。短く撮り直すか、スマホのカメラ設定で録画画質を1080pや720pに下げてお試しください。</p>
     <h3>使い方が分からないときは？</h3>
     <p>遠慮なくご連絡ください。「ここが使いにくい」「こんな機能がほしい」というご意見も大歓迎です。</p>
   </div>
 
-  <footer>ゲンバレポ — 現場写真から報告書・提案書・見積書をつくるアプリ</footer>
+  <footer>ゲンバレポ — 現場写真から報告書・提案書・見積書をつくるアプリ<br>
+  <a href="terms.html" style="color:var(--sub)">利用規約・プライバシーポリシー</a></footer>
 </main>
 </body>
 </html>
