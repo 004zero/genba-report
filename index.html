@@ -486,7 +486,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <div id="video-list"></div>
       <button class="btn btn-outline btn-block" id="add-video-btn">🎥 動画を追加（雨漏れ・漏水の状況など）</button>
       <input type="file" id="video-input" accept="video/*" style="display:none">
-      <div class="muted" id="video-note" style="margin-top:8px">水の流れる様子や異音など、写真では伝わらない状況の記録に。<b>10〜20秒程度の短い動画</b>がおすすめです。<br>報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。</div>
+      <div class="muted" id="video-note" style="margin-top:8px">水の流れる様子や異音など、写真では伝わらない状況の記録に。<br>報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。</div>
     </div>
     <div class="card">
       <h2>状況の記録</h2>
@@ -798,7 +798,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.28（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.29（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1408,12 +1408,17 @@ document.getElementById('photo-input').onchange = e => { const it = getItem(); i
 document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport(), 20, 900, 0.6); };
 
 /* ---- 動画（サーバー保存・端末にはコマ写真とURLのみ） ---- */
-let videoMaxMB = 60;
+let videoMaxMB = 400, videoMaxSec = 300, videoChunkMB = 3;
 async function fetchLimits(){
   if(!(sync.method === 'xserver' && syncReady())) return;
   try{
     const res = await fetch(sync.apiUrl + '?action=limits', { headers:{ 'X-Api-Key': sync.apiKey } });
-    if(res.ok){ const j = await res.json(); if(j.videoMaxMB) videoMaxMB = j.videoMaxMB; }
+    if(res.ok){
+      const j = await res.json();
+      if(j.videoMaxMB) videoMaxMB = j.videoMaxMB;
+      if(j.videoMaxSec) videoMaxSec = j.videoMaxSec;
+      if(j.chunkMB) videoChunkMB = Math.max(1, Math.min(j.chunkMB, 8));
+    }
   }catch(e){}
 }
 /* 動画の1コマ目をサムネイル画像にする（報告書に載せる用） */
@@ -1439,20 +1444,42 @@ function videoThumb(file){
     v.src = url;
   });
 }
-async function uploadVideo(file){
-  const fd = new FormData();
-  fd.append('file', file, file.name || 'video.mp4');
-  const res = await fetch(sync.apiUrl + '?action=videoup', {
-    method:'POST', headers:{ 'X-Api-Key': sync.apiKey }, body: fd
-  });
-  if(res.status === 413){
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j.message || '動画が大きすぎます');
+/* 長い動画もサーバー制限に縛られず送れるよう、小さく分割して順に送る */
+async function uploadVideo(file, onProgress){
+  const CHUNK = videoChunkMB * 1024 * 1024;
+  const total = Math.max(1, Math.ceil(file.size / CHUNK));
+  const uploadId = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'') : (Date.now().toString(16) + Math.random().toString(16).slice(2))).slice(0, 32);
+  const ext = ((file.name || '').split('.').pop() || 'mp4').toLowerCase();
+  for(let i = 0; i < total; i++){
+    let res, lastErr;
+    for(let retry = 0; retry < 3; retry++){        /* 現場の電波を考えて再送する */
+      try{
+        res = await fetch(sync.apiUrl + '?action=videochunk', {
+          method:'POST',
+          headers:{ 'X-Api-Key': sync.apiKey, 'X-Upload-Id': uploadId,
+                    'X-Chunk-Index': String(i), 'X-Chunk-Total': String(total),
+                    'X-File-Ext': ext, 'Content-Type':'application/octet-stream' },
+          body: file.slice(i * CHUNK, (i + 1) * CHUNK)
+        });
+        lastErr = null;
+        break;
+      }catch(e){ lastErr = e; await new Promise(r => setTimeout(r, 800 * (retry + 1))); }
+    }
+    if(lastErr) throw new Error('通信が不安定です。電波の良い場所でお試しください');
+    if(res.status === 404) throw new Error('サーバーが動画に未対応です（genba-api.zipを再アップロードしてください）');
+    if(res.status === 401) throw new Error('合言葉が無効です');
+    if(res.status === 413 || res.status === 409){
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.message || '動画を送れませんでした');
+    }
+    if(!res.ok) throw new Error('送信エラー HTTP' + res.status);
+    if(onProgress) onProgress((i + 1) / total);
+    if(i + 1 === total){
+      const j = await res.json();
+      if(!j.url) throw new Error('保存に失敗しました');
+      return j.url;
+    }
   }
-  if(res.status === 401) throw new Error('合言葉が無効です');
-  if(res.status === 404) throw new Error('サーバーが動画に未対応です（genba-api.zipを再アップロードしてください）');
-  if(!res.ok) throw new Error('送信エラー HTTP' + res.status);
-  return (await res.json()).url;
 }
 function renderVideoList(it){
   const wrap = document.getElementById('video-list');
@@ -1480,7 +1507,9 @@ function renderVideoList(it){
   const btn = document.getElementById('add-video-btn');
   btn.style.display = vids.length >= 2 ? 'none' : 'flex';
   document.getElementById('video-note').innerHTML = (sync.method === 'xserver' && syncReady())
-    ? `水の流れる様子や異音など、写真では伝わらない状況の記録に。<b>10〜20秒程度の短い動画</b>がおすすめです（1本${videoMaxMB}MBまで）。<br>報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。`
+    ? `水の流れる様子や異音など、写真では伝わらない状況の記録に。<b>最大${Math.floor(videoMaxSec/60)}分</b>（1本${videoMaxMB}MBまで）。<br>
+       雨漏れなど症状が出るまで時間がかかる場合も、そのまま撮って大丈夫です。長い動画は自動的に分けて送るので途中で失敗しにくくなっています（<b>Wi-Fi推奨</b>）。<br>
+       報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。`
     : '⚠ 動画はサーバーに保存されるため、<b>クラウド同期の設定と電波が必要</b>です（⚙設定から接続してください）。';
 }
 document.getElementById('add-video-btn').onclick = () => {
@@ -1492,18 +1521,31 @@ document.getElementById('video-input').onchange = async e => {
   const it = getItem();
   if(!f || !it) return;
   it.videos = it.videos || [];
+  const sizeMB = Math.round(f.size / 1024 / 1024);
   if(f.size > videoMaxMB * 1024 * 1024){
-    alert(`動画が大きすぎます（${Math.round(f.size/1024/1024)}MB）。\n1本${videoMaxMB}MBまでです。短く撮り直すか、スマホの設定で録画画質を下げてお試しください。`);
+    alert(`動画が大きすぎます（${sizeMB}MB）。\n1本${videoMaxMB}MBまでです。\n\n・短く撮り直す\n・スマホの設定で録画画質を下げる（1080p→720p）\nのいずれかをお試しください。`);
     return;
   }
-  toast('動画を送信中…（少し時間がかかります）');
+  const btn = document.getElementById('add-video-btn');
+  const label = btn.textContent;
+  btn.disabled = true;
+  const setP = p => { btn.textContent = `⬆ 送信中… ${Math.round(p * 100)}%`; };
+  setP(0);
   try{
-    const [{ data: thumb, sec }, url] = await Promise.all([videoThumb(f), uploadVideo(f)]);
-    it.videos.push({ id: uid(), url, thumb, sec, title: '', at: new Date().toISOString() });
+    const meta = await videoThumb(f);
+    if(videoMaxSec && meta.sec > videoMaxSec){
+      throw new Error(`動画が長すぎます（${Math.floor(meta.sec/60)}分${meta.sec%60}秒）。${Math.floor(videoMaxSec/60)}分までです`);
+    }
+    if(sizeMB >= 50 && !confirm(`この動画は約${sizeMB}MBあります。\n通信量がかかるため、Wi-Fiでの送信をおすすめします。\n\n送信しますか？`)){
+      throw new Error('送信を中止しました');
+    }
+    const url = await uploadVideo(f, setP);
+    it.videos.push({ id: uid(), url, thumb: meta.data, sec: meta.sec, title: '', at: new Date().toISOString() });
     const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
     saveDB(); renderVideoList(it);
     toast('動画を追加しました');
-  }catch(err){ toast('動画の追加に失敗：' + err.message); }
+  }catch(err){ toast(err.message.includes('中止') ? err.message : '動画の追加に失敗：' + err.message); }
+  finally{ btn.disabled = false; btn.textContent = label; renderVideoList(it); }
 };
 
 /* ---- 写真のサーバー保存（本体はサーバー、端末には縮小サムネのみ） ---- */
