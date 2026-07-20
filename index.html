@@ -482,6 +482,13 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <div class="muted" style="margin-top:8px">📝 写真左上の「✎」ボタンで、写真に文字・矢印・囲みを書き込めます。写真は端末内にのみ保存されます。</div>
     </div>
     <div class="card">
+      <h2>動画（最大2本）</h2>
+      <div id="video-list"></div>
+      <button class="btn btn-outline btn-block" id="add-video-btn">🎥 動画を追加（雨漏れ・漏水の状況など）</button>
+      <input type="file" id="video-input" accept="video/*" style="display:none">
+      <div class="muted" id="video-note" style="margin-top:8px">水の流れる様子や異音など、写真では伝わらない状況の記録に。<b>10〜20秒程度の短い動画</b>がおすすめです。<br>報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。</div>
+    </div>
+    <div class="card">
       <h2>状況の記録</h2>
       <label>場所 <span style="color:var(--red)">*</span></label>
       <input id="i-place" placeholder="例：店舗厨房">
@@ -791,7 +798,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.27（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.28（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -867,6 +874,7 @@ function migrateCase(c){
   c.checkins = c.checkins || [];
   c.messages = c.messages || [];
   c.photoRepExtra = c.photoRepExtra || [];
+  (c.items || []).forEach(it => { it.videos = it.videos || []; });
   c.start = c.start || '';
   c.end = c.end || '';
   return c;
@@ -1298,7 +1306,7 @@ function renderItemList(c){
 document.getElementById('add-item-btn').onclick = () => {
   collectCaseForm();
   const c = getCase(currentCaseId);
-  const it = { id:uid(), place:'', situation:'', cause:'', danger:'中', urgency:'早めの対応を推奨', action:'', costMin:'', costMax:'', memo:'', photos:[] };
+  const it = { id:uid(), place:'', situation:'', cause:'', danger:'中', urgency:'早めの対応を推奨', action:'', costMin:'', costMax:'', memo:'', photos:[], videos:[] };
   c.items.push(it); currentItemId = it.id; show('item');
 };
 function getItem(){ const c = getCase(currentCaseId); return c && c.items.find(i => i.id === currentItemId); }
@@ -1316,6 +1324,7 @@ function renderItem(){
   document.getElementById('i-cost-wrap').style.display = (sync.user && sync.user.role !== 'admin') ? 'none' : 'block';
   document.getElementById('i-memo').value = it.memo;
   renderPhotoGrid(it.photos, 'photo-grid', 'photo-input', () => renderItem());
+  renderVideoList(it);
 }
 function collectItemForm(){
   const it = getItem(); if(!it || currentView !== 'item') return;
@@ -1397,6 +1406,105 @@ async function handlePhotoInput(e, photos, rerender, max = 6, maxSide = 1100, qu
 document.getElementById('photo-input').onchange = e => { const it = getItem(); if(it) handlePhotoInput(e, it.photos, () => renderItem()); };
 /* 日報写真は最大20枚。枚数が多いため書類品質を保てる範囲で強めに圧縮 */
 document.getElementById('r-photo-input').onchange = e => { const r = getReport(); if(r) handlePhotoInput(e, r.photos, () => renderReport(), 20, 900, 0.6); };
+
+/* ---- 動画（サーバー保存・端末にはコマ写真とURLのみ） ---- */
+let videoMaxMB = 60;
+async function fetchLimits(){
+  if(!(sync.method === 'xserver' && syncReady())) return;
+  try{
+    const res = await fetch(sync.apiUrl + '?action=limits', { headers:{ 'X-Api-Key': sync.apiKey } });
+    if(res.ok){ const j = await res.json(); if(j.videoMaxMB) videoMaxMB = j.videoMaxMB; }
+  }catch(e){}
+}
+/* 動画の1コマ目をサムネイル画像にする（報告書に載せる用） */
+function videoThumb(file){
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'metadata'; v.muted = true; v.playsInline = true;
+    let done = false;
+    const finish = (data, sec) => { if(done) return; done = true; URL.revokeObjectURL(url); resolve({ data, sec }); };
+    v.onloadeddata = () => { try{ v.currentTime = Math.min(1, (v.duration || 2) / 2); }catch(e){ grab(); } };
+    v.onseeked = () => grab();
+    v.onerror = () => finish('', 0);
+    function grab(){
+      try{
+        const w = 480, h = Math.round(w * (v.videoHeight || 3) / (v.videoWidth || 4));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(v, 0, 0, w, h);
+        finish(cv.toDataURL('image/jpeg', 0.7), Math.round(v.duration || 0));
+      }catch(e){ finish('', Math.round(v.duration || 0)); }
+    }
+    setTimeout(() => finish('', 0), 8000);
+    v.src = url;
+  });
+}
+async function uploadVideo(file){
+  const fd = new FormData();
+  fd.append('file', file, file.name || 'video.mp4');
+  const res = await fetch(sync.apiUrl + '?action=videoup', {
+    method:'POST', headers:{ 'X-Api-Key': sync.apiKey }, body: fd
+  });
+  if(res.status === 413){
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.message || '動画が大きすぎます');
+  }
+  if(res.status === 401) throw new Error('合言葉が無効です');
+  if(res.status === 404) throw new Error('サーバーが動画に未対応です（genba-api.zipを再アップロードしてください）');
+  if(!res.ok) throw new Error('送信エラー HTTP' + res.status);
+  return (await res.json()).url;
+}
+function renderVideoList(it){
+  const wrap = document.getElementById('video-list');
+  const vids = it.videos || [];
+  wrap.innerHTML = vids.length ? vids.map((v,idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:#fff">
+      <video src="${esc(v.url)}" ${v.thumb ? `poster="${esc(v.thumb)}"` : ''} controls playsinline preload="metadata" style="width:100%;max-height:220px;background:#000;border-radius:8px"></video>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input data-vi="${idx}" value="${esc(v.title || '')}" placeholder="動画の説明（例：2階天井からの漏水）" style="flex:1;padding:7px 9px;font-size:13px">
+        <span class="muted" style="font-size:11.5px;white-space:nowrap">${v.sec ? v.sec + '秒' : ''}</span>
+        <button class="btn btn-danger btn-sm" data-vrm="${idx}">✕</button>
+      </div>
+    </div>`).join('') : '<p class="muted">まだ動画はありません。</p>';
+  wrap.querySelectorAll('[data-vi]').forEach(inp => inp.oninput = () => {
+    vids[Number(inp.dataset.vi)].title = inp.value;
+    const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+    saveDB();
+  });
+  wrap.querySelectorAll('[data-vrm]').forEach(b => b.onclick = () => {
+    if(!confirm('この動画を削除しますか？')) return;
+    vids.splice(Number(b.dataset.vrm), 1);
+    const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+    saveDB(); renderVideoList(it);
+  });
+  const btn = document.getElementById('add-video-btn');
+  btn.style.display = vids.length >= 2 ? 'none' : 'flex';
+  document.getElementById('video-note').innerHTML = (sync.method === 'xserver' && syncReady())
+    ? `水の流れる様子や異音など、写真では伝わらない状況の記録に。<b>10〜20秒程度の短い動画</b>がおすすめです（1本${videoMaxMB}MBまで）。<br>報告書には動画のコマ写真とQRコードが載り、お客様がスマホで読み取ると動画を見られます。`
+    : '⚠ 動画はサーバーに保存されるため、<b>クラウド同期の設定と電波が必要</b>です（⚙設定から接続してください）。';
+}
+document.getElementById('add-video-btn').onclick = () => {
+  if(!(sync.method === 'xserver' && syncReady())){ toast('動画はクラウド同期の設定後に使えます'); return; }
+  document.getElementById('video-input').click();
+};
+document.getElementById('video-input').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  const it = getItem();
+  if(!f || !it) return;
+  it.videos = it.videos || [];
+  if(f.size > videoMaxMB * 1024 * 1024){
+    alert(`動画が大きすぎます（${Math.round(f.size/1024/1024)}MB）。\n1本${videoMaxMB}MBまでです。短く撮り直すか、スマホの設定で録画画質を下げてお試しください。`);
+    return;
+  }
+  toast('動画を送信中…（少し時間がかかります）');
+  try{
+    const [{ data: thumb, sec }, url] = await Promise.all([videoThumb(f), uploadVideo(f)]);
+    it.videos.push({ id: uid(), url, thumb, sec, title: '', at: new Date().toISOString() });
+    const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+    saveDB(); renderVideoList(it);
+    toast('動画を追加しました');
+  }catch(err){ toast('動画の追加に失敗：' + err.message); }
+};
 
 /* ---- 写真のサーバー保存（本体はサーバー、端末には縮小サムネのみ） ---- */
 function makeThumb(dataUrl, maxSide = 280, quality = 0.55){
@@ -2238,6 +2346,26 @@ function photosHtml(photos){
   return `<div class="item-photos">${photos.map(p =>
     `<figure><img src="${p.url || p.data}"><figcaption>${esc(p.label)}</figcaption></figure>`).join('')}</div>`;
 }
+/* 動画は紙に載せられないため、コマ写真＋QRコード（スマホで読むと再生）で掲載する */
+function videosHtml(videos){
+  if(!videos || !videos.length) return '';
+  return videos.map(v => {
+    let qr = '';
+    try{
+      const q = qrcode(0, 'M'); q.addData(v.url); q.make();
+      qr = `<img src="${q.createDataURL(3, 6)}" style="width:74px;height:74px;image-rendering:pixelated">`;
+    }catch(e){}
+    return `<div style="display:flex;gap:8px;align-items:center;border:1px solid #b9c2cc;border-radius:5px;padding:7px;margin:6px 0;break-inside:avoid">
+      ${v.thumb ? `<img src="${v.thumb}" style="width:96px;height:72px;object-fit:cover;border-radius:4px;border:1px solid #ccc">` : ''}
+      <div style="flex:1;font-size:11px;line-height:1.6">
+        <b style="color:#1a3a5c">🎥 動画${v.sec ? '（' + v.sec + '秒）' : ''}</b>
+        ${v.title ? `<br>${esc(v.title)}` : ''}
+        <br><span style="color:#666">右のQRコードをスマホのカメラで読み取ると、動画を再生できます。</span>
+      </div>
+      ${qr}
+    </div>`;
+  }).join('');
+}
 function drawingsHtml(c){
   if(!c.drawings.length) return '';
   let h = `<div class="sec">添付図面</div>`;
@@ -2258,6 +2386,7 @@ function buildReport(c){
   c.items.forEach((it,idx) => {
     body += `<div class="sec">調査箇所 ${idx+1}：${esc(it.place||'')}</div>`;
     body += photosHtml(it.photos);
+    body += videosHtml(it.videos);
     body += `<table>
       <tr><th>現状</th><td>${esc(itemDesc(it))}</td></tr>
       <tr><th>原因（所見）</th><td>${esc(it.cause||'—')}</td></tr>
@@ -2304,6 +2433,7 @@ function buildCustomer(c){
     const dangerWord = it.danger === '高' ? '⚠️ 早めの対応がおすすめです' : it.danger === '中' ? '△ ようすを見ながら、対応をご検討ください' : '○ いますぐの心配はありません';
     body += `<div class="sec">${idx+1}. ${esc(toPlain(it.place)||'')}</div>`;
     body += photosHtml(it.photos);
+    body += videosHtml(it.videos);
     body += `<table>
       <tr><th>どうなっている？</th><td>${esc(toPlain(it.situation)||'')}</td></tr>
       <tr><th>なぜ？</th><td>${esc(toPlain(it.cause)||'—')}</td></tr>
@@ -3224,6 +3354,7 @@ async function xsSyncV2(){
   }
   if(j.user){ sync.user = j.user; }
   if(j.tenant){ sync.tenant = j.tenant; }
+  if(!sync._limitsFetched){ sync._limitsFetched = true; fetchLimits(); }
   localStorage.setItem(LS_KEY, JSON.stringify(db));
   return true;
 }
