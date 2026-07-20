@@ -799,7 +799,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.30（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.31（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2641,22 +2641,37 @@ function buildPhotoReport(c){
   const firstCount = cols === 1 ? Math.max(per - 1, 1) : (per >= 6 ? 4 : per);
   const chunks = [entries.slice(0, firstCount)];
   for(let i = firstCount; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
-  /* 台帳形式（1列）は写真の高さをmmで固定。2列は幅から自動。
-     印刷ダイアログで「ヘッダーとフッター」がONでも1ページに収まる寸法にしている */
-  const photoBox = cols === 1
-    ? `height:${per === 2 ? 93 : 56}mm;background:#f2f4f7;display:flex;align-items:center;justify-content:center`
-    : `aspect-ratio:3/2;background:#f2f4f7;display:flex;align-items:center;justify-content:center`;
-  /* 説明文が長くてもページを崩さないよう行数を制限（枚数が多いほど厳しく） */
-  const clampLines = per >= 6 ? 1 : 2;
+  /* 1列（台帳形式）は「写真＝左／説明＝右」の横並びにして高さを抑える。
+     ブロックの高さをmmで固定するので、説明が長くてもページからはみ出さない。 */
+  const rowH = per === 2 ? 108 : 70;                     /* 1ブロックの高さ(mm) */
   const clamp = (s, n) => `<div style="display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-word">${s}</div>`;
   let no = 0;
-  const block = e => { no++; return `<div class="pr-block" style="border:1px solid #9aa5b1;border-radius:4px;overflow:hidden;break-inside:avoid;page-break-inside:avoid">
-    <div style="${photoBox}"><img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>
-    <table style="margin:0">
-      <tr><th style="width:48px;text-align:center">No.${no}</th><td style="width:84px;white-space:nowrap">${jpShort(e.date) || ''}${e.label ? '・' + esc(e.label) : ''}</td><th style="width:42px">場所</th><td>${clamp(esc(e.place) || '—', 1)}</td></tr>
-      <tr><th style="text-align:center">内容</th><td colspan="3">${clamp(esc(e.desc) || '—', clampLines)}</td></tr>
-    </table>
-  </div>`; };
+  const block = e => {
+    no++;
+    const meta = `${jpShort(e.date) || ''}${e.label ? '・' + esc(e.label) : ''}`;
+    if(cols === 1){
+      return `<div class="pr-block" style="display:flex;height:${rowH}mm;border:1px solid #9aa5b1;border-radius:4px;overflow:hidden;break-inside:avoid;page-break-inside:avoid">
+        <div style="width:63%;background:#f2f4f7;display:flex;align-items:center;justify-content:center;border-right:1px solid #9aa5b1">
+          <img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain">
+        </div>
+        <div style="width:37%;padding:3mm 3.5mm;font-size:11px;line-height:1.6;overflow:hidden">
+          <div style="font-weight:800;color:#1a3a5c;font-size:12px;border-bottom:1px solid #ccd3da;padding-bottom:1mm;margin-bottom:1.5mm">
+            No.${no}<span style="float:right;font-weight:400;color:#666;font-size:9.5px">${meta}</span>
+          </div>
+          <div style="margin-bottom:2mm"><span style="color:#1a3a5c;font-weight:700;font-size:10px">場所</span>${clamp(esc(e.place) || '—', 2)}</div>
+          <div><span style="color:#1a3a5c;font-weight:700;font-size:10px">内容</span>${clamp(esc(e.desc) || '—', per === 2 ? 9 : 5)}</div>
+        </div>
+      </div>`;
+    }
+    /* 2列（4枚・6枚）は写真の下に説明を置く従来の形 */
+    return `<div class="pr-block" style="border:1px solid #9aa5b1;border-radius:4px;overflow:hidden;break-inside:avoid;page-break-inside:avoid">
+      <div style="aspect-ratio:5/3;background:#f2f4f7;display:flex;align-items:center;justify-content:center"><img src="${e.src}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>
+      <table style="margin:0">
+        <tr><th style="width:44px;text-align:center">No.${no}</th><td style="width:76px;white-space:nowrap">${meta}</td><th style="width:40px">場所</th><td>${clamp(esc(e.place) || '—', 1)}</td></tr>
+        <tr><th style="text-align:center">内容</th><td colspan="3">${clamp(esc(e.desc) || '—', 1)}</td></tr>
+      </table>
+    </div>`;
+  };
   const pageGrid = ch => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:3mm;margin-top:3mm">${ch.map(block).join('')}</div>`;
   let html = docShell('写真報告書', `<table>
     <tr><th>件名</th><td>${esc(c.title || '')}</td></tr>
