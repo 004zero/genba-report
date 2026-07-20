@@ -349,6 +349,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
   <!-- ============ 案件（サブタブ） ============ -->
   <section class="view" id="view-case">
     <button class="btn btn-block" id="checkin-btn" style="background:var(--green);color:#fff;margin-bottom:12px">✔ 入場チェック（現場に入りました）</button>
+    <button class="btn btn-outline btn-block" id="madori-btn" style="display:none;margin:0 0 12px">🏠 この物件を間取りメーカーで開く</button>
     <div class="subtabs" id="case-subtabs">
       <button class="subtab active" data-tab="info">基本</button>
       <button class="subtab" data-tab="items">調査</button>
@@ -798,7 +799,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.29（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.30（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -1088,6 +1089,9 @@ function renderCase(){
   renderCheckinBtn(c);
   renderCheckinList(c);
   renderMessages(c);
+  const mb = document.getElementById('madori-btn');
+  mb.style.display = c.madoriPropId ? 'flex' : 'none';
+  mb.onclick = () => window.open(MADORI_URL + '#prop=' + encodeURIComponent(c.madoriPropId), '_blank', 'noopener');
 }
 /* ---- 現場連絡板（👥全体 ／ 🔒個別＝大元⇔各下請け1対1） ---- */
 let currentMsgCh = '';  /* '' = 全体、userId = その人との個別 */
@@ -1772,7 +1776,7 @@ function renderDrawings(c){
     <div class="drawing-card" data-id="${d.id}">
       <input value="${esc(d.name)}" data-role="name" style="font-weight:700">
       <div class="drawing-wrap ${pinModeDrawingId === d.id ? 'pinmode' : ''}" data-role="img">
-        <img src="${d.data}">
+        <img src="${drawingSrc(d)}">
         ${d.pins.map((p,idx) => `<div class="pin" data-pin="${p.id}" style="left:${p.x}%;top:${p.y}%"><span>${idx+1}</span></div>`).join('')}
       </div>
       <ul class="pin-list">
@@ -2413,7 +2417,7 @@ function drawingsHtml(c){
   let h = `<div class="sec">添付図面</div>`;
   c.drawings.forEach(d => {
     h += `<p style="font-weight:700;font-size:12px;margin-top:6px">${esc(d.name)}</p>
-    <div class="dwg"><img src="${d.data}">
+    <div class="dwg"><img src="${drawingSrc(d)}">
       ${d.pins.map((p,idx) => `<div class="pin" style="left:${p.x}%;top:${p.y}%;width:20px;height:20px;font-size:10px"><span>${idx+1}</span></div>`).join('')}
     </div>`;
     if(d.pins.length) h += `<table>${d.pins.map((p,idx) => `<tr><th style="width:36px;text-align:center">${idx+1}</th><td>${esc(p.label||'')}${p.memo ? '　' + esc(p.memo) : ''}</td></tr>`).join('')}</table>`;
@@ -3641,6 +3645,78 @@ async function renderCaseMembers(c){
     document.querySelectorAll('.cm-user').forEach(l => l.style.opacity = on ? '.45' : '1');
   };
 }
+/* ---- 間取りメーカーとの連携（物件⇔案件の紐づけ・間取り図の受け取り） ---- */
+const MADORI_URL = 'https://madori-maker.com/';
+function b64urlDecode(s){
+  let b = s.replace(/-/g,'+').replace(/_/g,'/');
+  while(b.length % 4) b += '=';
+  return b64decode(b);
+}
+async function handleMadoriLink(){
+  const m = location.hash.match(/madori=([A-Za-z0-9\-_]+)/);
+  if(!m) return false;
+  history.replaceState(null, '', location.pathname + location.search);
+  let p = null;
+  try{ p = JSON.parse(b64urlDecode(m[1])); }catch(e){}
+  if(!p || !p.prop){ toast('間取りメーカーからの情報を読み取れませんでした'); return false; }
+  const name = p.name || '無題の物件';
+  let c = db.cases.find(x => x.madoriPropId === p.prop);
+  const isNew = !c;
+  if(!c){
+    const ok = await new Promise(resolve => {
+      openModal(`<h3>🏠 間取りメーカーから</h3>
+        <p><b>${esc(name)}</b>${p.addr ? '<br><span class="muted">' + esc(p.addr) + '</span>' : ''}</p>
+        <p class="muted" style="margin-top:8px">この物件の案件をゲンバレポに作成しますか？${p.dwg ? '<br>間取り図も図面として取り込みます。' : ''}</p>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="md-cancel">やめる</button>
+          <button class="btn btn-primary" id="md-ok">案件を作る</button>
+        </div>`);
+      document.getElementById('md-cancel').onclick = () => { closeModal(); resolve(false); };
+      document.getElementById('md-ok').onclick = () => { closeModal(); resolve(true); };
+    });
+    if(!ok) return false;
+    c = migrateCase({ id: uid(), title: name, client:'', honor:'様', address: p.addr || '', date: today(),
+      surveyor: db.company.person || '', status:'調査中', overview:'', items:[],
+      estimate:{ lines:[], taxRate:10, note: db.company.estNote || '' }, updatedAt: new Date().toISOString() });
+    db.cases.push(c);
+  }
+  c.madoriPropId = p.prop;
+  c.madoriName = name;
+  if(p.addr && !c.address) c.address = p.addr;
+  c.updatedAt = new Date().toISOString();
+  saveDB();
+  currentCaseId = c.id; currentCaseTab = 'info';
+  show('case');
+  /* 間取り図を図面として取り込む */
+  if(p.dwg){
+    toast('間取り図を取り込み中…');
+    try{
+      const res = await fetch(p.dwg);
+      if(!res.ok) throw new Error('取得できませんでした');
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const fr = new FileReader(); fr.onload = () => resolve(fr.result); fr.onerror = reject; fr.readAsDataURL(blob);
+      });
+      const shrunk = await compressImage(new File([blob], 'madori.png', { type: blob.type || 'image/png' }), 1600, 0.85);
+      const url = await uploadPhoto(shrunk);
+      const dname = `間取り図（${name}）`;
+      const already = c.drawings.find(d => d.name === dname);
+      const entry = { id: uid(), name: dname, data: url ? '' : (shrunk || dataUrl), url: url || '', pins: [] };
+      if(already){ already.data = entry.data; already.url = entry.url; }
+      else c.drawings.push(entry);
+      c.updatedAt = new Date().toISOString();
+      saveDB();
+      currentCaseTab = 'drawings'; renderCase();
+      toast('間取り図を図面に追加しました');
+    }catch(e){ toast('間取り図を取り込めませんでした：' + e.message); }
+  }
+  if(isNew) toast(`「${name}」の案件を作成しました`);
+  if(syncReady()) syncNow(true);
+  return true;
+}
+/* 図面は url があればそれを表示（間取りメーカー由来の図面に対応） */
+function drawingSrc(d){ return d.url || d.data; }
+
 /* 招待リンクを開いたとき：確認→設定を取り込み→即同期 */
 function handleJoinLink(){
   const m = location.hash.match(/join=([A-Za-z0-9\-_]+)/);
@@ -3767,7 +3843,9 @@ document.getElementById('install-btn').onclick = async () => {
 /* ================= 起動 ================= */
 show('home');
 setSyncUI(false);
-if(!handleJoinLink() && syncReady() && sync.auto) syncNow(true);
+if(!handleJoinLink()){
+  handleMadoriLink().then(handled => { if(!handled && syncReady() && sync.auto) syncNow(true); });
+}
 </script>
 </body>
 </html>
