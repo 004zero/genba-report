@@ -799,7 +799,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.31（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.32（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2638,12 +2638,13 @@ function buildPhotoReport(c){
   const cols = per <= 3 ? 1 : 2;
   /* A4（使用可能高さ265mm）に必ず収まるようmm基準で組む。
      1ページ目は表紙情報（約54mm）が入るぶん枚数を減らす。 */
-  const firstCount = cols === 1 ? Math.max(per - 1, 1) : (per >= 6 ? 4 : per);
+  /* 表紙情報を1行の帯にしたので、1ページ目も同じ枚数を入れられる（6枚だけは2行分に抑える） */
+  const firstCount = per >= 6 ? 4 : per;
   const chunks = [entries.slice(0, firstCount)];
   for(let i = firstCount; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
   /* 1列（台帳形式）は「写真＝左／説明＝右」の横並びにして高さを抑える。
      ブロックの高さをmmで固定するので、説明が長くてもページからはみ出さない。 */
-  const rowH = per === 2 ? 108 : 70;                     /* 1ブロックの高さ(mm) */
+  const rowH = per === 2 ? 99 : 65;                      /* 1ブロックの高さ(mm) */
   const clamp = (s, n) => `<div style="display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;overflow:hidden;word-break:break-word">${s}</div>`;
   let no = 0;
   const block = e => {
@@ -2673,12 +2674,24 @@ function buildPhotoReport(c){
     </div>`;
   };
   const pageGrid = ch => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:3mm;margin-top:3mm">${ch.map(block).join('')}</div>`;
-  let html = docShell('写真報告書', `<table>
-    <tr><th>件名</th><td>${esc(c.title || '')}</td></tr>
-    <tr><th>工事場所</th><td>${esc(c.address || '')}</td></tr>
-    <tr><th>期間</th><td>${o.reports && (o.from || o.to) ? `${o.from ? jpDate(o.from) : ''} 〜 ${o.to ? jpDate(o.to) : ''}` : jpDate(c.date)}</td></tr>
-    <tr><th>写真枚数</th><td>${entries.length}枚（${chunks.length}ページ）</td></tr>
-  </table>` + pageGrid(chunks[0]));
+  /* 表紙情報は1行の帯にして、1ページ目にも写真をしっかり入れる */
+  const period = o.reports && (o.from || o.to)
+    ? `${o.from ? jpDate(o.from) : ''} 〜 ${o.to ? jpDate(o.to) : ''}`
+    : jpDate(c.date);
+  const headBand = `<div style="font-size:11px;color:#333;border:1px solid #b9c2cc;border-radius:4px;padding:1.8mm 3mm;margin-bottom:2mm;line-height:1.5">
+    <b style="color:#1a3a5c">件名：</b>${esc(c.title || '—')}　<b style="color:#1a3a5c">工事場所：</b>${esc(c.address || '—')}　<b style="color:#1a3a5c">期間：</b>${period}　<b style="color:#1a3a5c">写真：</b>${entries.length}枚（全${chunks.length}ページ）
+  </div>`;
+  /* 写真をできるだけ大きく載せるため、表題は1行にまとめる（会社名・ロゴ・連絡先は残す） */
+  const co = db.company;
+  const logoImg = co.logo ? `<img src="${co.logo}" style="max-height:9mm;max-width:30mm;object-fit:contain;margin-right:2.5mm">` : '';
+  const docHead = `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:4mm;border-bottom:2.5px solid #1a3a5c;padding-bottom:1.5mm;margin-bottom:2mm">
+    <div style="display:flex;align-items:center;min-width:0">${logoImg}<span style="font-size:17px;font-weight:800;color:#1a3a5c;letter-spacing:.12em;white-space:nowrap">写真報告書</span></div>
+    <div style="text-align:right;font-size:10px;line-height:1.45;color:#333">
+      <b>${esc(co.name || '')}</b>${co.tel ? '　TEL：' + esc(co.tel) : ''}${co.person ? '　担当：' + esc(co.person) : ''}<br>
+      <span style="color:#666">作成日：${jpDate(today())}</span>
+    </div>
+  </div>`;
+  let html = `<div class="doc">${docHead}${headBand}${pageGrid(chunks[0])}</div>`;
   for(let i = 1; i < chunks.length; i++){
     html += `<div class="doc"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #1a3a5c;margin-bottom:6px;padding-bottom:4px"><b style="color:#1a3a5c">写真報告書｜${esc(c.title || '')}</b><span style="font-size:11px;color:#666">${i + 1} / ${chunks.length}</span></div>${pageGrid(chunks[i])}</div>`;
   }

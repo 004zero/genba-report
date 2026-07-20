@@ -1,5 +1,5 @@
 /* ゲンバレポ Service Worker — オフライン対応 */
-const CACHE = 'genbarepo-v2.31.1';
+const CACHE = 'genbarepo-v2.32.0';
 const ASSETS = [
   './',
   './index.html',
