@@ -130,6 +130,15 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 .pr-thumb .pr-ops button{background:#eef2f6;border:none;border-radius:6px;width:30px;height:24px;font-size:13px;color:var(--navy);cursor:pointer}
 .pr-thumb .pr-ops button.rm{color:var(--red)}
 .pr-thumb .pr-no{position:absolute;margin:-4px 0 0 -4px;background:var(--navy);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center}
+/* 現場写真の選択パネル */
+.pk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:6px}
+.pk-cell{position:relative;border-radius:8px;overflow:hidden;border:2px solid transparent;cursor:pointer;aspect-ratio:1;background:var(--blue-l)}
+.pk-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.pk-cell.sel{border-color:var(--orange)}
+.pk-cell.sel::after{content:'✓';position:absolute;top:3px;right:3px;background:var(--orange);color:#fff;width:21px;height:21px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.pk-cell.done{opacity:.35}
+.pk-cell .cap{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:9.5px;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk-sec{font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 2px}
 
 /* 図面 */
 .drawing-card{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px;background:#fff}
@@ -583,8 +592,9 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div id="photorep-card" class="card" style="display:none">
       <h2>写真報告書の設定</h2>
-      <label>フォルダ・アルバムから写真を追加</label>
-      <div class="pr-drop" id="pr-drop"><b>＋</b>ここに写真をドラッグ＆ドロップ<br>またはタップして選択（複数可）</div>
+      <label>写真を追加</label>
+      <button class="btn btn-navy btn-block" id="pr-pick" style="margin-bottom:8px">📷 この現場の写真から選ぶ（調査・日報・連絡板）</button>
+      <div class="pr-drop" id="pr-drop"><b>＋</b>フォルダ・アルバムから追加<br>ドラッグ＆ドロップ、またはタップして選択</div>
       <input type="file" id="pr-file" accept="image/*" multiple hidden>
       <div id="pr-extra-list"></div>
       <label style="margin-top:16px">案件の写真も入れる</label>
@@ -781,7 +791,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.26（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.27（試作版・PWA・マルチテナント・マルチアカウント・工程管理・発注書・写真報告書・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -2550,6 +2560,72 @@ function renderPhotoRepExtra(){
     });
   });
 }
+/* ---- この現場の写真（調査・日報・連絡板）から選んで報告書に入れる ---- */
+function caseAllPhotos(c){
+  const out = [];
+  (c.items || []).forEach(it => (it.photos || []).forEach(p => out.push({
+    src: p.url || p.data, url: p.url || '', data: p.url ? '' : (p.data || ''),
+    group: '調査', date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || ''
+  })));
+  [...(c.reports || [])].sort((a,b) => (a.date || '').localeCompare(b.date || '')).forEach(r => (r.photos || []).forEach(p => out.push({
+    src: p.url || p.data, url: p.url || '', data: p.url ? '' : (p.data || ''),
+    group: '日報', date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || ''
+  })));
+  [...(c.messages || [])].filter(m => m.photo && m.photo.url).sort((a,b) => (a.at || '').localeCompare(b.at || '')).forEach(m => out.push({
+    src: m.photo.url, url: m.photo.url, data: '',
+    group: '連絡板', date: (m.at || '').slice(0,10), label: '',
+    place: '', desc: (m.text && m.text !== '📷 写真') ? m.text : (m.name ? m.name + 'さんの写真' : '')
+  }));
+  return out;
+}
+function openPhotoPicker(){
+  const c = getCase(currentCaseId); if(!c) return;
+  const all = caseAllPhotos(c);
+  if(!all.length){ toast('この現場にはまだ写真がありません'); return; }
+  const already = new Set((c.photoRepExtra || []).map(p => p.url || p.data));
+  const sel = new Set();
+  const groups = ['調査', '日報', '連絡板'];
+  const cell = (p, i) => `<div class="pk-cell ${already.has(p.url || p.data) ? 'done' : ''}" data-i="${i}">
+    <img src="${esc(p.src)}" loading="lazy">
+    <div class="cap">${jpShort(p.date) || ''}${p.place ? ' ' + esc(p.place) : (p.desc ? ' ' + esc(p.desc.slice(0,10)) : '')}</div>
+  </div>`;
+  const body = groups.map(g => {
+    const items = all.map((p,i) => ({p,i})).filter(x => x.p.group === g);
+    if(!items.length) return '';
+    const icon = g === '調査' ? '🔍' : g === '日報' ? '📝' : '💬';
+    return `<div class="pk-sec">${icon} ${g}（${items.length}枚）</div><div class="pk-grid">${items.map(x => cell(x.p, x.i)).join('')}</div>`;
+  }).join('');
+  openModal(`<h3>📷 この現場の写真から選ぶ</h3>
+    <p class="muted">タップで選択します。うすい写真は追加済みです。</p>
+    <div style="max-height:52vh;overflow-y:auto;margin-top:4px">${body}</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="pk-cancel">キャンセル</button>
+      <button class="btn btn-primary" id="pk-ok">追加する（<span id="pk-n">0</span>枚）</button>
+    </div>`);
+  modalBox.querySelectorAll('.pk-cell:not(.done)').forEach(el => el.onclick = () => {
+    const i = Number(el.dataset.i);
+    if(sel.has(i)){ sel.delete(i); el.classList.remove('sel'); }
+    else { sel.add(i); el.classList.add('sel'); }
+    document.getElementById('pk-n').textContent = sel.size;
+  });
+  document.getElementById('pk-cancel').onclick = closeModal;
+  document.getElementById('pk-ok').onclick = () => {
+    if(!sel.size){ toast('写真を選んでください'); return; }
+    c.photoRepExtra = c.photoRepExtra || [];
+    [...sel].sort((a,b) => a - b).forEach(i => {
+      const p = all[i];
+      const item = { id: uid(), date: p.date || today(), label: p.label || '', place: p.place || '', desc: p.desc || '' };
+      if(p.url) item.url = p.url; else item.data = p.data;
+      c.photoRepExtra.push(item);
+    });
+    c.updatedAt = new Date().toISOString();
+    saveDB(); closeModal();
+    renderPhotoRepExtra(); renderPreview(c);
+    toast(`${sel.size}枚を追加しました`);
+  };
+}
+document.getElementById('pr-pick').onclick = openPhotoPicker;
+
 async function addExtraPhotos(files){
   const c = getCase(currentCaseId); if(!c) return;
   c.photoRepExtra = c.photoRepExtra || [];
