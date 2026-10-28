@@ -114,7 +114,10 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 .photo-cell img{width:100%;height:100%;object-fit:cover;display:block}
 .photo-cell .del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1}
 .photo-cell .edit{position:absolute;top:4px;left:4px;background:rgba(232,118,45,.92);color:#fff;border:none;width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1}
-.photo-cell select{position:absolute;bottom:0;left:0;width:100%;font-size:11px;padding:3px 4px;border:none;border-radius:0;background:rgba(255,255,255,.9)}
+.photo-cell .ph-tags{position:absolute;bottom:0;left:0;width:100%;display:flex}
+.photo-cell .ph-tags select{flex:1;min-width:0;font-size:10px;padding:3px 2px;border:none;border-radius:0;background:rgba(255,255,255,.92)}
+.photo-cell .ph-tags select.ph-cat{background:rgba(26,58,92,.9);color:#fff;border-left:1px solid #fff}
+.cat-badge{display:inline-block;background:var(--blue-l);color:var(--navy);font-size:10px;font-weight:700;border-radius:4px;padding:1px 7px;margin-bottom:3px}
 .photo-add{aspect-ratio:1;border:2px dashed var(--line);border-radius:8px;background:#fff;color:var(--sub);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .photo-add b{font-size:24px;color:var(--orange)}
 
@@ -447,8 +450,13 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <h2>現場連絡板</h2>
         <div class="doc-tabs" id="msg-ch-bar" style="margin-bottom:8px"></div>
         <p class="muted" id="msg-ch-note" style="margin-bottom:8px"></p>
+        <div style="margin-bottom:8px"><select id="msg-cat-filter" style="font-size:13px"></select></div>
         <div id="msg-list"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+          <span class="muted" style="flex-shrink:0;font-size:12px">工種</span>
+          <select id="msg-cat" style="flex:1;font-size:13px"></select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
           <button class="btn btn-outline" id="msg-photo-btn" style="flex-shrink:0;padding:12px 14px" title="写真を送る">📷</button>
           <input id="msg-input" placeholder="メッセージを入力" autocomplete="off">
           <button class="btn btn-primary" id="msg-send" style="flex-shrink:0">送信</button>
@@ -531,6 +539,8 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <div><label>天候</label><select id="r-weather"><option>晴れ</option><option>曇り</option><option>雨</option><option>雪</option><option>強風</option><option>晴れのち雨</option></select></div>
         <div><label>記入者</label><input id="r-author" placeholder="例：佐藤"></div>
       </div>
+      <label>工種（任意・この日報と写真の分類に使えます）</label>
+      <select id="r-cat"></select>
     </div>
     <div class="card">
       <h2>作業人数（出面）</h2>
@@ -621,6 +631,9 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
         <option value="4">1ページ 4枚（コンパクト）</option>
         <option value="6">1ページ 6枚（枚数が多いとき）</option>
       </select>
+      <label style="margin-top:12px">工種でしぼり込む</label>
+      <select id="pr-cat"></select>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--text);margin-top:10px"><input type="checkbox" id="pr-bycat" style="width:auto"> 工種ごとに分けて出力（工種見出し＋ページ区切り）</label>
       <div class="muted" style="margin-top:8px;font-size:12px">写真の順番は下のリストの「↑↓」で入れ替えられます。追加した写真 → 調査 → 日報の順に並びます。<br>
       🖨 印刷時のおすすめ設定：<b>用紙A4／余白「デフォルト」／「ヘッダーとフッター」はオフ</b>（オンのままでも1ページに収まるようにしていますが、オフの方が写真が大きく出ます）</div>
     </div>
@@ -717,6 +730,16 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
       <button class="btn btn-primary btn-block" id="save-settings-btn">保存する</button>
     </div>
     <div class="card">
+      <h2>工種（写真・図面・日報・連絡の分類）</h2>
+      <p class="muted">ここで決めた工種で、写真・図面・日報・連絡板を分類・しぼり込みできます。写真報告書も工種ごとに分けて出力できます。上から順に選択肢に並びます（会社の全端末で共有されます）。</p>
+      <div id="cat-list"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="cat-new" placeholder="工種を追加（例：外構・防水）" autocomplete="off">
+        <button class="btn btn-primary btn-sm" id="cat-add" style="flex-shrink:0;padding:10px 14px">＋ 追加</button>
+      </div>
+      <button class="btn btn-outline btn-sm" id="cat-reset" style="margin-top:8px">標準の工種に戻す</button>
+    </div>
+    <div class="card">
       <h2>クラウド同期（複数端末でデータ共有）</h2>
       <p class="muted">スマホ・タブレット・PCで同じデータ（案件・写真・日報すべて）を共有できます。データは自分のサーバー／自分のGitHub非公開リポジトリにだけ保存され、外部業者には渡りません。</p>
       <label>同期方法</label>
@@ -799,7 +822,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
     </div>
     <div class="card">
       <h2>このアプリについて</h2>
-      <p class="muted">ゲンバレポ v2.32（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・保管庫・連絡板・通知対応）<br>
+      <p class="muted">ゲンバレポ v2.33（試作版・PWA・間取りメーカー連携・マルチテナント・工程管理・発注書・写真/動画報告・工種分類・保管庫・連絡板・通知対応）<br>
       現場写真・図面・工程・日報をスマホで記録し、調査報告書・改善提案書・見積書・工事日報・工程表をその場で作成できます。<br><br>
       <b>免責：</b>自動作成される文章はあくまで下書きです。原因・危険性・費用に関する記載は、必ず有資格者・担当者が確認のうえ確定してください。</p>
     </div>
@@ -843,6 +866,27 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 90px}
 'use strict';
 /* ================= データ ================= */
 const LS_KEY = 'genbaRepoData_v1';
+/* ===== 工種（作業の種類）＝写真・図面・日報・連絡の分類 ===== */
+const DEFAULT_CATS = ['解体','木工事','床工事','クロス','水道設備','電気設備','塗装','左官・タイル','建具','クリーニング','その他'];
+function catList(){
+  if(!db || !db.company) return DEFAULT_CATS;
+  if(!Array.isArray(db.company.cats) || !db.company.cats.length) db.company.cats = [...DEFAULT_CATS];
+  return db.company.cats;
+}
+/* 分類をつける用の <select> 中身（先頭＝工種なし）。cur が一覧から消えていても値は残して表示 */
+function catOptions(cur){
+  const list = catList();
+  return `<option value="">工種なし</option>`
+    + list.map(k => `<option value="${esc(k)}" ${cur === k ? 'selected' : ''}>${esc(k)}</option>`).join('')
+    + (cur && !list.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : '');
+}
+/* しぼり込み用の <select> 中身（先頭＝すべて・末尾＝工種なし） */
+function catFilterOptions(cur){
+  return `<option value="">すべての工種</option>`
+    + catList().map(k => `<option value="${esc(k)}" ${cur === k ? 'selected' : ''}>${esc(k)}</option>`).join('')
+    + `<option value="__none__" ${cur === '__none__' ? 'selected' : ''}>工種なし</option>`;
+}
+function fillCatSelect(el, cur){ if(el) el.innerHTML = catOptions(cur || ''); }
 let db = loadDB();
 /* 端末ごとの表示設定（同期しない） */
 let uiPrefs = (function(){ try{ const p = JSON.parse(localStorage.getItem('genbaRepoUI')); if(p && typeof p === 'object') return p; }catch(e){} return {}; })();
@@ -885,7 +929,7 @@ function loadDB(){
     const d = JSON.parse(localStorage.getItem(LS_KEY));
     if(d && Array.isArray(d.cases)){ d.cases.forEach(migrateCase); return d; }
   }catch(e){}
-  return { company:{name:'',person:'',address:'',tel:'',email:'',logo:'',estNote:'本見積りの有効期限は発行日より30日間です。'}, cases:[] };
+  return { company:{name:'',person:'',address:'',tel:'',email:'',logo:'',estNote:'本見積りの有効期限は発行日より30日間です。',cats:[...DEFAULT_CATS]}, cases:[] };
 }
 function saveDB(){
   try{
@@ -1122,8 +1166,15 @@ function renderMsgChannels(c){
 }
 function renderMessages(c){
   renderMsgChannels(c);
+  /* 工種：投稿用セレクト（選択は保持）としぼり込みセレクトを用意 */
+  const compose = document.getElementById('msg-cat');
+  if(compose){ const cur = compose.value; fillCatSelect(compose, cur); }
+  const fEl = document.getElementById('msg-cat-filter');
+  let catF = '';
+  if(fEl){ const cur = fEl.value; fEl.innerHTML = catFilterOptions(cur); catF = fEl.value; fEl.onchange = () => renderMessages(c); }
   const list = document.getElementById('msg-list');
-  const msgs = [...(c.messages || [])].filter(m => (m.ch || '') === currentMsgCh).sort((a,b) => (a.at || '').localeCompare(b.at || ''));
+  let msgs = [...(c.messages || [])].filter(m => (m.ch || '') === currentMsgCh).sort((a,b) => (a.at || '').localeCompare(b.at || ''));
+  if(catF) msgs = msgs.filter(m => catF === '__none__' ? !m.cat : m.cat === catF);
   list.innerHTML = msgs.length ? msgs.map(m => {
     const mine = m.userId === myUid();
     const d = new Date(m.at);
@@ -1131,7 +1182,7 @@ function renderMessages(c){
     const photo = m.photo && m.photo.url
       ? `<a href="${esc(m.photo.url)}" target="_blank" rel="noopener"><img src="${esc(m.photo.url)}" loading="lazy" style="max-width:210px;width:100%;border-radius:8px;display:block;margin:2px 0"></a>`
       : '';
-    return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${photo}${m.text && m.text !== '📷 写真' ? esc(m.text) : (photo ? '' : esc(m.text))}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
+    return `<div class="msg ${mine ? 'me' : 'other'}">${mine ? '' : `<div class="meta"><b>${esc(m.name || '')}</b></div>`}${m.cat ? `<span class="cat-badge">${esc(m.cat)}</span><br>` : ''}${photo}${m.text && m.text !== '📷 写真' ? esc(m.text) : (photo ? '' : esc(m.text))}<div class="meta" style="text-align:right;margin-top:2px">${time}</div></div>`;
   }).join('') : `<p class="muted" style="padding:12px">${currentMsgCh === '' ? 'まだメッセージがありません。' : 'まだ個別のやりとりはありません。'}</p>`;
   list.scrollTop = list.scrollHeight;
 }
@@ -1153,6 +1204,7 @@ document.getElementById('msg-photo-input').onchange = async e => {
     document.getElementById('msg-input').value = '';
     const msg = { id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text, photo: { url } };
     if(currentMsgCh) msg.ch = currentMsgCh;
+    const mcat = document.getElementById('msg-cat'); if(mcat && mcat.value) msg.cat = mcat.value;
     c.messages.push(msg);
     c.updatedAt = new Date().toISOString();
     saveDB();
@@ -1181,6 +1233,7 @@ function sendMessage(){
   const c = getCase(currentCaseId); if(!c) return;
   const msg = { id: uid(), at: new Date().toISOString(), userId: myUid(), name: myUname(), text };
   if(currentMsgCh) msg.ch = currentMsgCh;
+  const mcat = document.getElementById('msg-cat'); if(mcat && mcat.value) msg.cat = mcat.value;
   c.messages.push(msg);
   c.updatedAt = new Date().toISOString();
   inp.value = '';
@@ -1361,9 +1414,12 @@ function renderPhotoGrid(photos, gridId, inputId, rerender, max = 6){
       <img src="${p.data}">
       <button class="edit" data-idx="${idx}" title="書き込み">✎</button>
       <button class="del" data-idx="${idx}">✕</button>
-      <select data-idx="${idx}">
-        ${['現状','ビフォー','アフター','施工中','完了'].map(l => `<option ${p.label===l?'selected':''}>${l}</option>`).join('')}
-      </select>
+      <div class="ph-tags">
+        <select class="ph-label" data-idx="${idx}">
+          ${['現状','ビフォー','アフター','施工中','完了'].map(l => `<option ${p.label===l?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select class="ph-cat" data-idx="${idx}">${catOptions(p.cat)}</select>
+      </div>
     </div>`).join('');
   if(photos.length < max) html += `<button class="photo-add" data-add="1"><b>＋</b>写真を追加<span style="font-size:10px">${photos.length}/${max}</span></button>`;
   grid.innerHTML = html;
@@ -1392,8 +1448,13 @@ function renderPhotoGrid(photos, gridId, inputId, rerender, max = 6){
     e.stopPropagation();
     openAnnotator(photos[Number(b.dataset.idx)], () => { saveDB(); rerender(); });
   });
-  grid.querySelectorAll('select').forEach(s => s.onchange = () => {
+  grid.querySelectorAll('.ph-label').forEach(s => s.onchange = () => {
     photos[Number(s.dataset.idx)].label = s.value; saveDB();
+  });
+  grid.querySelectorAll('.ph-cat').forEach(s => s.onchange = () => {
+    photos[Number(s.dataset.idx)].cat = s.value;
+    const c = getCase(currentCaseId); if(c) c.updatedAt = new Date().toISOString();
+    saveDB();
   });
 }
 async function handlePhotoInput(e, photos, rerender, max = 6, maxSide = 1100, quality = 0.72){
@@ -1757,6 +1818,7 @@ document.getElementById('anno-save').onclick = async () => {
 
 /* ================= 図面 ================= */
 let pinModeDrawingId = null;
+let drawingFilter = '';
 document.getElementById('add-drawing-btn').onclick = () => document.getElementById('drawing-input').click();
 document.getElementById('drawing-input').onchange = async e => {
   const c = getCase(currentCaseId); if(!c) return;
@@ -1772,9 +1834,17 @@ document.getElementById('drawing-input').onchange = async e => {
 function renderDrawings(c){
   const wrap = document.getElementById('drawing-list');
   if(!c.drawings.length){ wrap.innerHTML = ''; return; }
-  wrap.innerHTML = c.drawings.map(d => `
+  const usedCats = [...new Set(c.drawings.map(d => d.cat).filter(Boolean))];
+  const filterBar = usedCats.length
+    ? `<div style="margin-bottom:10px"><label style="font-size:12px;color:var(--sub)">工種でしぼり込む</label><select id="dwg-filter" style="font-size:13px">${catFilterOptions(drawingFilter)}</select></div>`
+    : (drawingFilter = '', '');
+  const shown = c.drawings.filter(d => !drawingFilter || (drawingFilter === '__none__' ? !d.cat : d.cat === drawingFilter));
+  wrap.innerHTML = filterBar + shown.map(d => `
     <div class="drawing-card" data-id="${d.id}">
-      <input value="${esc(d.name)}" data-role="name" style="font-weight:700">
+      <div style="display:flex;gap:6px;align-items:center">
+        <input value="${esc(d.name)}" data-role="name" style="font-weight:700;flex:1">
+        <select data-role="cat" style="flex-shrink:0;max-width:44%;font-size:13px">${catOptions(d.cat)}</select>
+      </div>
       <div class="drawing-wrap ${pinModeDrawingId === d.id ? 'pinmode' : ''}" data-role="img">
         <img src="${drawingSrc(d)}">
         ${d.pins.map((p,idx) => `<div class="pin" data-pin="${p.id}" style="left:${p.x}%;top:${p.y}%"><span>${idx+1}</span></div>`).join('')}
@@ -1787,9 +1857,12 @@ function renderDrawings(c){
         <button class="btn btn-danger btn-sm" data-role="del">図面を削除</button>
       </div>
     </div>`).join('');
+  const fe = document.getElementById('dwg-filter');
+  if(fe) fe.onchange = () => { drawingFilter = fe.value; renderDrawings(c); };
   wrap.querySelectorAll('.drawing-card').forEach(card => {
     const d = c.drawings.find(x => x.id === card.dataset.id);
     card.querySelector('[data-role="name"]').oninput = e => { d.name = e.target.value; saveDB(); };
+    card.querySelector('[data-role="cat"]').onchange = e => { d.cat = e.target.value; c.updatedAt = new Date().toISOString(); saveDB(); if(drawingFilter) renderDrawings(c); };
     card.querySelector('[data-role="pinmode"]').onclick = () => {
       pinModeDrawingId = pinModeDrawingId === d.id ? null : d.id;
       renderDrawings(c);
@@ -2136,6 +2209,7 @@ function renderReport(){
   document.getElementById('r-date').value = r.date;
   document.getElementById('r-weather').value = r.weather;
   document.getElementById('r-author').value = r.author;
+  fillCatSelect(document.getElementById('r-cat'), r.cat);
   document.getElementById('r-content').value = r.content;
   document.getElementById('r-progress').value = r.progress;
   document.getElementById('r-tomorrow').value = r.tomorrow;
@@ -2237,6 +2311,7 @@ function collectReportForm(){
   r.date = document.getElementById('r-date').value || r.date;
   r.weather = document.getElementById('r-weather').value;
   r.author = document.getElementById('r-author').value.trim();
+  r.cat = document.getElementById('r-cat').value;
   r.content = document.getElementById('r-content').value.trim();
   r.progress = document.getElementById('r-progress').value;
   r.tomorrow = document.getElementById('r-tomorrow').value.trim();
@@ -2416,7 +2491,7 @@ function drawingsHtml(c){
   if(!c.drawings.length) return '';
   let h = `<div class="sec">添付図面</div>`;
   c.drawings.forEach(d => {
-    h += `<p style="font-weight:700;font-size:12px;margin-top:6px">${esc(d.name)}</p>
+    h += `<p style="font-weight:700;font-size:12px;margin-top:6px">${esc(d.name)}${d.cat ? ` <span style="font-weight:400;color:#1a3a5c;font-size:11px">［${esc(d.cat)}］</span>` : ''}</p>
     <div class="dwg"><img src="${drawingSrc(d)}">
       ${d.pins.map((p,idx) => `<div class="pin" style="left:${p.x}%;top:${p.y}%;width:20px;height:20px;font-size:10px"><span>${idx+1}</span></div>`).join('')}
     </div>`;
@@ -2609,39 +2684,56 @@ function buildNippoDoc(c, r){
 /* ⑥b 写真報告書（工事写真台帳スタイル） */
 function photoRepOpts(){
   if(!uiPrefs.photoRep) uiPrefs.photoRep = { items:true, reports:true, from:'', to:'', per:'3' };
+  if(uiPrefs.photoRep.cat == null) uiPrefs.photoRep.cat = '';
+  if(uiPrefs.photoRep.bycat == null) uiPrefs.photoRep.bycat = false;
   return uiPrefs.photoRep;
 }
 function collectPhotoEntries(c, o){
   const out = [];
   /* フォルダ等から手動で追加した写真（手動の並び順） */
   (c.photoRepExtra || []).forEach(p =>
-    out.push({ src: p.url || p.data, date: p.date || c.date, label: p.label || '', place: p.place || '', desc: p.desc || '' }));
+    out.push({ src: p.url || p.data, date: p.date || c.date, label: p.label || '', place: p.place || '', desc: p.desc || '', cat: p.cat || '' }));
   if(o.items){
     c.items.forEach(it => (it.photos || []).forEach(p =>
-      out.push({ src: p.url || p.data, date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || '' })));
+      out.push({ src: p.url || p.data, date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || '', cat: p.cat || '' })));
   }
   if(o.reports){
     [...c.reports].sort((a,b) => (a.date || '').localeCompare(b.date || '')).forEach(r => {
       if(o.from && r.date < o.from) return;
       if(o.to && r.date > o.to) return;
       (r.photos || []).forEach(p =>
-        out.push({ src: p.url || p.data, date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || '' }));
+        out.push({ src: p.url || p.data, date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || '', cat: p.cat || r.cat || '' }));
     });
   }
   return out;
 }
 function buildPhotoReport(c){
   const o = photoRepOpts();
-  const entries = collectPhotoEntries(c, o);
-  if(!entries.length) return docShell('写真報告書', '<p>写真がまだありません。上の「フォルダ・アルバムから写真を追加」から選ぶか、「調査項目の写真」「日報の写真」にチェックを入れてください。</p>');
+  let entries = collectPhotoEntries(c, o);
+  const order = catList();
+  /* 工種でしぼり込み（__none__ = 工種なし） */
+  if(o.cat) entries = entries.filter(e => o.cat === '__none__' ? (!e.cat || !order.includes(e.cat)) : e.cat === o.cat);
+  if(!entries.length) return docShell('写真報告書', '<p>該当する写真がありません。工種のしぼり込みを「すべての工種」に戻すか、上の「フォルダ・アルバムから写真を追加」から選ぶか、「調査項目の写真」「日報の写真」にチェックを入れてください。</p>');
   const per = Number(o.per) || 3;
   const cols = per <= 3 ? 1 : 2;
   /* A4（使用可能高さ265mm）に必ず収まるようmm基準で組む。
      1ページ目は表紙情報（約54mm）が入るぶん枚数を減らす。 */
   /* 表紙情報を1行の帯にしたので、1ページ目も同じ枚数を入れられる（6枚だけは2行分に抑える） */
   const firstCount = per >= 6 ? 4 : per;
-  const chunks = [entries.slice(0, firstCount)];
-  for(let i = firstCount; i < entries.length; i += per) chunks.push(entries.slice(i, i + per));
+  /* 工種見出しを載せるページは1枚ぶん余白を取る */
+  const gFirst = per >= 6 ? 4 : Math.max(1, per - 1);
+  const paginate = (arr, f) => { f = (f == null ? firstCount : f); const out = [arr.slice(0, f)]; for(let i = f; i < arr.length; i += per) out.push(arr.slice(i, i + per)); return out.filter(x => x.length); };
+  /* 工種ごとに分ける場合のグループ化（しない場合は全体で1グループ） */
+  let groups;
+  if(o.bycat){
+    groups = [];
+    order.forEach(k => { const es = entries.filter(e => e.cat === k); if(es.length) groups.push({ label: k, es }); });
+    const none = entries.filter(e => !e.cat || !order.includes(e.cat));
+    if(none.length) groups.push({ label: '工種なし', es: none });
+  } else {
+    groups = [{ label: '', es: entries }];
+  }
+  const totalPages = o.bycat ? 1 + groups.reduce((s,g) => s + paginate(g.es, gFirst).length, 0) : paginate(entries).length;
   /* 1列（台帳形式）は「写真＝左／説明＝右」の横並びにして高さを抑える。
      ブロックの高さをmmで固定するので、説明が長くてもページからはみ出さない。 */
   const rowH = per === 2 ? 99 : 65;                      /* 1ブロックの高さ(mm) */
@@ -2679,7 +2771,7 @@ function buildPhotoReport(c){
     ? `${o.from ? jpDate(o.from) : ''} 〜 ${o.to ? jpDate(o.to) : ''}`
     : jpDate(c.date);
   const headBand = `<div style="font-size:11px;color:#333;border:1px solid #b9c2cc;border-radius:4px;padding:1.8mm 3mm;margin-bottom:2mm;line-height:1.5">
-    <b style="color:#1a3a5c">件名：</b>${esc(c.title || '—')}　<b style="color:#1a3a5c">工事場所：</b>${esc(c.address || '—')}　<b style="color:#1a3a5c">期間：</b>${period}　<b style="color:#1a3a5c">写真：</b>${entries.length}枚（全${chunks.length}ページ）
+    <b style="color:#1a3a5c">件名：</b>${esc(c.title || '—')}　<b style="color:#1a3a5c">工事場所：</b>${esc(c.address || '—')}　<b style="color:#1a3a5c">期間：</b>${period}　<b style="color:#1a3a5c">写真：</b>${entries.length}枚（全${totalPages}ページ）${o.cat && o.cat !== '__none__' ? `　<b style="color:#1a3a5c">工種：</b>${esc(o.cat)}` : (o.cat === '__none__' ? '　<b style="color:#1a3a5c">工種：</b>工種なし' : '')}
   </div>`;
   /* 写真をできるだけ大きく載せるため、表題は1行にまとめる（会社名・ロゴ・連絡先は残す） */
   const co = db.company;
@@ -2691,10 +2783,22 @@ function buildPhotoReport(c){
       <span style="color:#666">作成日：${jpDate(today())}</span>
     </div>
   </div>`;
-  let html = `<div class="doc">${docHead}${headBand}${pageGrid(chunks[0])}</div>`;
-  for(let i = 1; i < chunks.length; i++){
-    html += `<div class="doc"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #1a3a5c;margin-bottom:6px;padding-bottom:4px"><b style="color:#1a3a5c">写真報告書｜${esc(c.title || '')}</b><span style="font-size:11px;color:#666">${i + 1} / ${chunks.length}</span></div>${pageGrid(chunks[i])}</div>`;
+  const catBand = (label, n) => `<div style="font-size:13px;font-weight:800;color:#fff;background:#1a3a5c;border-radius:4px;padding:1.6mm 3mm;margin:0 0 2mm">■ ${esc(label)}（${n}枚）</div>`;
+  const runHead = extra => `<div style="display:flex;justify-content:space-between;border-bottom:2px solid #1a3a5c;margin-bottom:6px;padding-bottom:4px"><b style="color:#1a3a5c">写真報告書｜${esc(c.title || '')}${extra ? '｜' + esc(extra) : ''}</b></div>`;
+  if(!o.bycat){
+    const chunks = paginate(entries);
+    let html = `<div class="doc">${docHead}${headBand}${pageGrid(chunks[0] || [])}</div>`;
+    for(let i = 1; i < chunks.length; i++) html += `<div class="doc">${runHead()}${pageGrid(chunks[i])}</div>`;
+    return html;
   }
+  /* 工種ごと：1ページ目に内訳（目次）、以降は工種ごとにページを分ける */
+  const toc = groups.map(g => `<tr><th style="text-align:left">${esc(g.label)}</th><td class="num">${g.es.length}枚</td></tr>`).join('');
+  let html = `<div class="doc">${docHead}${headBand}<div class="sec">工種の内訳</div><table>${toc}</table></div>`;
+  groups.forEach(g => {
+    paginate(g.es, gFirst).forEach((ch, i) => {
+      html += `<div class="doc">${i === 0 ? catBand(g.label, g.es.length) : runHead(g.label)}${pageGrid(ch)}</div>`;
+    });
+  });
   return html;
 }
 function renderPhotoRepCard(){
@@ -2704,10 +2808,12 @@ function renderPhotoRepCard(){
   document.getElementById('pr-from').value = o.from || '';
   document.getElementById('pr-to').value = o.to || '';
   document.getElementById('pr-per').value = String(o.per || '4');
+  document.getElementById('pr-cat').innerHTML = catFilterOptions(o.cat || '');
+  document.getElementById('pr-bycat').checked = !!o.bycat;
   document.getElementById('pr-period').style.display = o.reports ? 'grid' : 'none';
   renderPhotoRepExtra();
 }
-['pr-items','pr-reports','pr-from','pr-to','pr-per'].forEach(id => {
+['pr-items','pr-reports','pr-from','pr-to','pr-per','pr-cat','pr-bycat'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     const o = photoRepOpts();
     o.items = document.getElementById('pr-items').checked;
@@ -2715,6 +2821,8 @@ function renderPhotoRepCard(){
     o.from = document.getElementById('pr-from').value;
     o.to = document.getElementById('pr-to').value;
     o.per = document.getElementById('pr-per').value;
+    o.cat = document.getElementById('pr-cat').value;
+    o.bycat = document.getElementById('pr-bycat').checked;
     saveUiPrefs();
     document.getElementById('pr-period').style.display = o.reports ? 'grid' : 'none';
     const c = getCase(currentCaseId);
@@ -2733,6 +2841,7 @@ function renderPhotoRepExtra(){
       <div class="pr-fields">
         <input data-f="place" placeholder="場所（例：外壁 東面）" value="${esc(p.place || '')}">
         <input data-f="desc" placeholder="内容（例：ひび割れ補修後）" value="${esc(p.desc || '')}">
+        <select data-role="cat" style="font-size:13px;padding:6px 8px">${catOptions(p.cat)}</select>
       </div>
       <div class="pr-ops">
         <button data-op="edit" title="赤丸・矢印を書き込む" style="background:var(--orange-l);color:var(--orange)">✎</button>
@@ -2749,6 +2858,13 @@ function renderPhotoRepExtra(){
       saveDB();
       renderPreview(c);
     });
+    const catSel = row.querySelector('[data-role="cat"]');
+    if(catSel) catSel.onchange = () => {
+      list[i].cat = catSel.value;
+      c.updatedAt = new Date().toISOString();
+      saveDB();
+      renderPreview(c);
+    };
     row.querySelectorAll('[data-op]').forEach(b => b.onclick = () => {
       const op = b.dataset.op;
       if(op === 'edit'){
@@ -2769,11 +2885,11 @@ function caseAllPhotos(c){
   const out = [];
   (c.items || []).forEach(it => (it.photos || []).forEach(p => out.push({
     src: p.url || p.data, url: p.url || '', data: p.url ? '' : (p.data || ''),
-    group: '調査', date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || ''
+    group: '調査', date: c.date, label: p.label || '', place: it.place || '', desc: it.situation || '', cat: p.cat || ''
   })));
   [...(c.reports || [])].sort((a,b) => (a.date || '').localeCompare(b.date || '')).forEach(r => (r.photos || []).forEach(p => out.push({
     src: p.url || p.data, url: p.url || '', data: p.url ? '' : (p.data || ''),
-    group: '日報', date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || ''
+    group: '日報', date: r.date, label: p.label || '', place: '', desc: (r.content || '').split('\n')[0] || '', cat: p.cat || r.cat || ''
   })));
   [...(c.messages || [])].filter(m => m.photo && m.photo.url).sort((a,b) => (a.at || '').localeCompare(b.at || '')).forEach(m => out.push({
     src: m.photo.url, url: m.photo.url, data: '',
@@ -2818,7 +2934,7 @@ function openPhotoPicker(){
     c.photoRepExtra = c.photoRepExtra || [];
     [...sel].sort((a,b) => a - b).forEach(i => {
       const p = all[i];
-      const item = { id: uid(), date: p.date || today(), label: p.label || '', place: p.place || '', desc: p.desc || '' };
+      const item = { id: uid(), date: p.date || today(), label: p.label || '', place: p.place || '', desc: p.desc || '', cat: p.cat || '' };
       if(p.url) item.url = p.url; else item.data = p.data;
       c.photoRepExtra.push(item);
     });
@@ -3233,6 +3349,43 @@ function renderSettings(){
   const ld = document.getElementById('s-logo-del');
   if(co.logo){ lp.src = co.logo; lp.style.display = 'block'; ld.style.display = 'inline-flex'; }
   else { lp.style.display = 'none'; ld.style.display = 'none'; }
+  renderCats();
+}
+/* ===== 工種の追加・並べ替え・削除 ===== */
+function renderCats(){
+  const wrap = document.getElementById('cat-list'); if(!wrap) return;
+  const cats = catList();
+  const touch = () => { db.company.updatedAt = new Date().toISOString(); saveDB(); };
+  wrap.innerHTML = cats.map((k,i) => `
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px" data-i="${i}">
+      <input value="${esc(k)}" data-role="name" style="flex:1">
+      <button class="btn btn-outline btn-sm" data-role="up" style="flex-shrink:0;padding:8px 11px" ${i===0?'disabled style="opacity:.3;padding:8px 11px"':''}>↑</button>
+      <button class="btn btn-outline btn-sm" data-role="down" style="flex-shrink:0;padding:8px 11px" ${i===cats.length-1?'disabled style="opacity:.3;padding:8px 11px"':''}>↓</button>
+      <button class="btn btn-danger btn-sm" data-role="del" style="flex-shrink:0;padding:8px 11px">✕</button>
+    </div>`).join('');
+  wrap.querySelectorAll('[data-i]').forEach(row => {
+    const i = Number(row.dataset.i);
+    row.querySelector('[data-role="name"]').onchange = e => {
+      const v = e.target.value.trim();
+      if(v){ cats[i] = v; touch(); } else { e.target.value = cats[i]; }
+    };
+    row.querySelector('[data-role="up"]').onclick = () => { if(i>0){ [cats[i-1],cats[i]]=[cats[i],cats[i-1]]; touch(); renderCats(); } };
+    row.querySelector('[data-role="down"]').onclick = () => { if(i<cats.length-1){ [cats[i+1],cats[i]]=[cats[i],cats[i+1]]; touch(); renderCats(); } };
+    row.querySelector('[data-role="del"]').onclick = () => {
+      if(confirm(`工種「${cats[i]}」を一覧から削除しますか？（この工種で分類済みの写真などのデータはそのまま残ります）`)){ cats.splice(i,1); touch(); renderCats(); }
+    };
+  });
+  const addBtn = document.getElementById('cat-add');
+  const newInp = document.getElementById('cat-new');
+  addBtn.onclick = () => {
+    const v = newInp.value.trim(); if(!v) return;
+    if(cats.includes(v)){ toast('同じ工種がすでにあります'); return; }
+    cats.push(v); newInp.value = ''; touch(); renderCats();
+  };
+  newInp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); addBtn.onclick(); } };
+  document.getElementById('cat-reset').onclick = () => {
+    if(confirm('工種の一覧を標準の11種に戻しますか？（分類済みのデータはそのまま残ります）')){ db.company.cats = [...DEFAULT_CATS]; touch(); renderCats(); }
+  };
 }
 document.getElementById('save-settings-btn').onclick = () => {
   const co = db.company;
@@ -3424,7 +3577,7 @@ async function xsSyncV2(){
   db.cases = (j.cases || []).map(migrateCase);
   db.deleted = j.deleted || [];
   if(j.company && typeof j.company === 'object' && !Array.isArray(j.company) && Object.keys(j.company).length){
-    db.company = Object.assign({ name:'', person:'', address:'', tel:'', email:'', logo:'', estNote:'' }, j.company);
+    db.company = Object.assign({ name:'', person:'', address:'', tel:'', email:'', logo:'', estNote:'', cats:(db.company && db.company.cats) || [...DEFAULT_CATS] }, j.company);
   }
   if(j.user){ sync.user = j.user; }
   if(j.tenant){ sync.tenant = j.tenant; }
